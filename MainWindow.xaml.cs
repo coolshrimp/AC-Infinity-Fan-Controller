@@ -26,8 +26,6 @@ public partial class MainWindow : Window
     private Button ConnectButton=>bluetoothWindow.ConnectButton;
     private Button DisconnectButton=>bluetoothWindow.DisconnectButton;
     private CheckBox AutoConnectBox=>appearanceWindow.AutoConnectBox;
-    private ComboBox ThemeBox=>appearanceWindow.ThemeBox;
-    private ComboBox AccentBox=>appearanceWindow.AccentBox;
     private Slider OpacitySlider=>appearanceWindow.OpacitySlider;
     private TextBlock ProgramsText=>programsWindow.ProgramsText;
     private readonly BluetoothController controller=new();
@@ -46,14 +44,14 @@ public partial class MainWindow : Window
         foreach(var panel in Panels)panel.Resources=Resources;
         ScanButton.Click+=Scan_Click;ConnectButton.Click+=Connect_Click;DisconnectButton.Click+=Disconnect_Click;
         DevicesList.SelectionChanged+=Device_Selected;bluetoothWindow.WindowsBluetoothButton.Click+=WindowsBluetooth_Click;
-        AutoConnectBox.Click+=Appearance_Changed;ThemeBox.SelectionChanged+=Appearance_Changed;
-        AccentBox.SelectionChanged+=Appearance_Changed;OpacitySlider.ValueChanged+=Appearance_Changed;
+        AutoConnectBox.Click+=Appearance_Changed;OpacitySlider.ValueChanged+=Appearance_Changed;
+        appearanceWindow.PanelColorButton.Click+=(_,_)=>PickColor(false);
+        appearanceWindow.AccentColorButton.Click+=(_,_)=>PickColor(true);
+        appearanceWindow.DefaultsButton.Click+=RestoreAppearance;
         bluetoothWindow.ConnectionStatusText.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding("Text"){Source=StatusText});
         prefs=smoke?new():Preferences.Read(preferences);
-        AddressBox.Text=prefs.address;fahrenheit=prefs.unit=="F";
+        AddressBox.Text="";fahrenheit=prefs.unit=="F";
         AutoConnectBox.IsChecked=prefs.AutoConnect;
-        foreach(ComboBoxItem item in ThemeBox.Items)if((string)item.Content==prefs.Theme)ThemeBox.SelectedItem=item;
-        foreach(ComboBoxItem item in AccentBox.Items)if((string)item.Tag==prefs.Accent)AccentBox.SelectedItem=item;
         OpacitySlider.Value=Math.Clamp(prefs.Transparency,45,100);Topmost=prefs.Pinned;
         if(prefs.Left is double x && prefs.Top is double y && double.IsFinite(x)&&double.IsFinite(y))
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
@@ -70,9 +68,9 @@ public partial class MainWindow : Window
             Pin_Click(this,new RoutedEventArgs());if(Topmost)throw new InvalidOperationException("Unpin failed");
             Connection_Click(this,new RoutedEventArgs());if(!bluetoothWindow.IsVisible)throw new InvalidOperationException("Connection panel failed");
             Connection_Click(this,new RoutedEventArgs());
-            ThemeBox.SelectedIndex=2;AccentBox.SelectedIndex=1;OpacitySlider.Value=65;
-            if(((SolidColorBrush)Shell.Background).Color.A!=(byte)(255*65/100)||prefs.Theme!="Forest"||prefs.Accent!="#81E1B7"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
-            ThemeBox.SelectedIndex=0;AccentBox.SelectedIndex=0;OpacitySlider.Value=94;
+            prefs.PanelColor="#164E63";prefs.Accent="#F0ABFC";OpacitySlider.Value=65;
+            if(((SolidColorBrush)Shell.Background).Color.A!=(byte)(255*65/100)||prefs.PanelColor!="#164E63"||prefs.Accent!="#F0ABFC"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
+            RestoreAppearance(this,new RoutedEventArgs());
             Tray_Click(this,new RoutedEventArgs());if(IsVisible)throw new InvalidOperationException("Tray hide failed");ShowWindow();
             if(Environment.GetCommandLineArgs().Contains("--settings"))Settings_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--bluetooth"))
@@ -83,6 +81,8 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--programs"))Programs_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--transparent"))OpacitySlider.Value=45;
+            if(Environment.GetCommandLineArgs().Contains("--light")){prefs.PanelColor="#F0E9D6";prefs.Accent="#CC3377";ApplyAppearance();Settings_Click(this,new RoutedEventArgs());}
+            if(AddressBox.Text.Length!=0)throw new InvalidOperationException("Address field must start blank");
             UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
         }
         using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/ui/icon.ico")).Stream;
@@ -127,7 +127,7 @@ public partial class MainWindow : Window
     {
         await controller.ConnectAsync(target);
         if(quitting){await controller.DisconnectAsync();return;}
-        prefs.address=target.Mac;AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
+        prefs.address=target.Mac;reconnect.Reset();SavePreferences();
         DevicesList.Visibility=Visibility.Collapsed;ConnectButton.Visibility=Visibility.Collapsed;
         SpeedSlider.Value=controller.State.On is >=1 and <=10?controller.State.On:5;
         StatusText.Text="Connected. Live readings refresh every 15 seconds.";
@@ -139,8 +139,8 @@ public partial class MainWindow : Window
         await operationGate.WaitAsync();
         if(quitting){operationGate.Release();return;}
         busy=true;refreshing=isRefresh;UpdateButtons();
-        if(message.Length>0){StatusText.Text=message;StatusText.Foreground=Brushes.LightSteelBlue;}
-        try {await action();UpdateView();if(!background){StatusText.Text=controller.Connected?"Controller responded. Live readings refresh every 15 seconds.":"Ready.";StatusText.Foreground=Brushes.LightSteelBlue;}}
+        if(message.Length>0){StatusText.Text=message;StatusText.Foreground=(Brush)Resources["MutedBrush"];}
+        try {await action();UpdateView();if(!background){StatusText.Text=controller.Connected?"Controller responded. Live readings refresh every 15 seconds.":"Ready.";StatusText.Foreground=(Brush)Resources["MutedBrush"];}}
         catch(Exception ex){if(!controller.Connected)reconnect.Failed(DateTime.UtcNow);UpdateView();StatusText.Text=ex is OperationCanceledException?"Connection timed out. Move closer and close other AC Infinity apps.":ex.Message;StatusText.Foreground=Brushes.LightSalmon;}
         finally {busy=false;refreshing=false;UpdateButtons();operationGate.Release();}
     }
@@ -252,18 +252,46 @@ public partial class MainWindow : Window
     {
         if(!initialized)return;
         bool was=prefs.AutoConnect;prefs.AutoConnect=AutoConnectBox.IsChecked==true;
-        prefs.Theme=(string)((ComboBoxItem)ThemeBox.SelectedItem).Content;
-        prefs.Accent=(string)((ComboBoxItem)AccentBox.SelectedItem).Tag;
         prefs.Transparency=OpacitySlider.Value;
         if(!was&&prefs.AutoConnect)reconnect.Reset();
         ApplyAppearance();SavePreferences();
     }
+    private static Color ParseColor(string? value,Color fallback)
+    {try{return (Color)ColorConverter.ConvertFromString(value??"");}catch{return fallback;}}
+    private Color PanelColor()=>ParseColor(prefs.PanelColor,prefs.Theme=="Slate"?Color.FromRgb(48,61,80):prefs.Theme=="Forest"?Color.FromRgb(28,48,44):Color.FromRgb(23,26,32));
+    private sealed class ColorDialogOwner : Forms.IWin32Window
+    {
+        public IntPtr Handle {get;}
+        public ColorDialogOwner(Window window)=>Handle=new System.Windows.Interop.WindowInteropHelper(window).Handle;
+    }
+    private void PickColor(bool accent)
+    {
+        var current=accent?ParseColor(prefs.Accent,Color.FromRgb(145,199,242)):PanelColor();
+        using var picker=new Forms.ColorDialog{FullOpen=true,AnyColor=true,Color=System.Drawing.Color.FromArgb(current.R,current.G,current.B)};
+        if(picker.ShowDialog(new ColorDialogOwner(appearanceWindow))!=Forms.DialogResult.OK)return;
+        string hex=$"#{picker.Color.R:X2}{picker.Color.G:X2}{picker.Color.B:X2}";
+        if(accent)prefs.Accent=hex;else prefs.PanelColor=hex;
+        ApplyAppearance();SavePreferences();
+    }
+    private void RestoreAppearance(object sender,RoutedEventArgs e)
+    {
+        prefs.PanelColor=null;prefs.Theme="Midnight";prefs.Accent="#91C7F2";prefs.Transparency=94;
+        OpacitySlider.Value=94;ApplyAppearance();SavePreferences();
+    }
     private void ApplyAppearance()
     {
-        try{Resources["AccentBrush"]=new SolidColorBrush((Color)ColorConverter.ConvertFromString(prefs.Accent));}catch{prefs.Accent="#91C7F2";Resources["AccentBrush"]=new SolidColorBrush(Color.FromRgb(145,199,242));}
-        var palette=prefs.Theme=="Slate"?new[]{"#303D50","#233042","#384A61"}:prefs.Theme=="Forest"?new[]{"#1C302C","#12231F","#294239"}:new[]{"#171A20","#11151A","#1D222D"};
-        SolidColorBrush Glass(string value){var color=(Color)ColorConverter.ConvertFromString(value);color.A=(byte)(255*Math.Clamp(prefs.Transparency,45,100)/100);return new(color);}
-        Resources["WindowBrush"]=Glass(palette[0]);Resources["CardBrush"]=Glass(palette[1]);Resources["HeaderBrush"]=Glass(palette[2]);
+        var accent=ParseColor(prefs.Accent,Color.FromRgb(145,199,242));
+        var panel=PanelColor();bool light=(panel.R*.299+panel.G*.587+panel.B*.114)>155;
+        Color Mix(Color value,double factor)=>Color.FromRgb((byte)Math.Clamp(value.R*factor,0,255),(byte)Math.Clamp(value.G*factor,0,255),(byte)Math.Clamp(value.B*factor,0,255));
+        SolidColorBrush Glass(Color color){color.A=(byte)(255*Math.Clamp(prefs.Transparency,45,100)/100);return new(color);}
+        Resources["AccentBrush"]=new SolidColorBrush(accent);
+        ApplyButton.Foreground=(accent.R*.299+accent.G*.587+accent.B*.114)>155?Brushes.Black:Brushes.White;
+        Resources["WindowBrush"]=Glass(panel);Resources["CardBrush"]=Glass(Mix(panel,.86));Resources["HeaderBrush"]=Glass(Mix(panel,light?.92:1.18));
+        Resources["TextBrush"]=new SolidColorBrush(light?Color.FromRgb(20,30,40):Color.FromRgb(238,243,248));
+        Resources["MutedBrush"]=new SolidColorBrush(light?Color.FromRgb(50,65,80):Color.FromRgb(175,193,215));
+        appearanceWindow.PanelSwatch.Background=new SolidColorBrush(panel);appearanceWindow.AccentSwatch.Background=new SolidColorBrush(accent);
+        appearanceWindow.PanelColorText.Text=$"Panel color  #{panel.R:X2}{panel.G:X2}{panel.B:X2}";
+        appearanceWindow.AccentColorText.Text=$"Accent color  #{accent.R:X2}{accent.G:X2}{accent.B:X2}";
         PinTilt.Angle=Topmost?0:45;PinButton.ToolTip=Topmost?"Unpin from top":"Pin on top";
         PinButton.Foreground=Topmost?(Brush)Resources["AccentBrush"]:Brushes.LightSteelBlue;
     }

@@ -10,6 +10,7 @@ public sealed class Preferences
     public bool Pinned {get;set;}
     public string Accent {get;set;}="#91C7F2";
     public string Theme {get;set;}="Midnight";
+    public string? PanelColor {get;set;}
     public double Transparency {get;set;}=94;
     public double? Left {get;set;}
     public double? Top {get;set;}

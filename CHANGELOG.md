@@ -1,5 +1,11 @@
 # Changes
 
+## 0.5.0
+
+- Optional Bluetooth address field starts blank with discovery guidance; remembered reconnection remains local to each user.
+- Full panel/accent color pickers replace fixed presets, with saved colors and appearance defaults.
+- Text contrast adapts to light and dark custom panels.
+
 ## 0.4.3
 
 - Bundle compression is conditional on self-contained publishing, fixing NETSDK1176 when UI Maker overrides the setting.

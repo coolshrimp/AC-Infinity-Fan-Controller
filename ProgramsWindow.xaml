@@ -1,8 +1,8 @@
-<Window x:Class="ACInfinityDesktop.ProgramsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Stored programs" Width="500" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Foreground="#EEF3F8" FontFamily="Segoe UI" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" PreviewKeyDown="Window_KeyDown" Closing="Window_Closing">
+<Window x:Class="ACInfinityDesktop.ProgramsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Stored programs" Width="500" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" PreviewKeyDown="Window_KeyDown" Closing="Window_Closing">
  <Window.Resources><ResourceDictionary Source="Theme.xaml"/></Window.Resources>
-<Border x:Name="PanelShell" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI">
+<Border x:Name="PanelShell" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="{DynamicResource TextBrush}" TextElement.FontFamily="Segoe UI">
    <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Stored programs"/><TextBlock Text="Stored programs" FontSize="18" VerticalAlignment="Center"/></DockPanel>
-<TextBlock x:Name="ProgramsText" Text="Connect to read stored timer, cycle, Auto, and schedule settings." Foreground="#AFC1D7" TextWrapping="Wrap" Margin="0,10,0,6" FontSize="12"/>
+<TextBlock x:Name="ProgramsText" Text="Connect to read stored timer, cycle, Auto, and schedule settings." Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,10,0,6" FontSize="12"/>
    </StackPanel>
   </Border>
 </Window>

@@ -1,17 +1,18 @@
-<Window x:Class="ACInfinityDesktop.AppearanceWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Appearance" Width="500" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Foreground="#EEF3F8" FontFamily="Segoe UI" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" PreviewKeyDown="Window_KeyDown" Closing="Window_Closing">
+<Window x:Class="ACInfinityDesktop.AppearanceWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Appearance" Width="500" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" PreviewKeyDown="Window_KeyDown" Closing="Window_Closing">
  <Window.Resources><ResourceDictionary Source="Theme.xaml"/></Window.Resources>
-<Border x:Name="PanelShell" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI">
+<Border x:Name="PanelShell" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="{DynamicResource TextBrush}" TextElement.FontFamily="Segoe UI">
    <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Appearance"/><TextBlock Text="Appearance" FontSize="18" VerticalAlignment="Center"/></DockPanel>
   <Border x:Name="SettingsPanel" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="14"><StackPanel>
    <TextBlock Text="Appearance &amp; preferences" FontSize="15" Margin="0,0,0,12"/>
-   <CheckBox x:Name="AutoConnectBox" ToolTip="Remember the last controller and reconnect automatically" Content="Connect automatically and retry if disconnected" Foreground="#D4E5F8" Margin="0,0,0,12"/>
+   <CheckBox x:Name="AutoConnectBox" ToolTip="Remember the last controller and reconnect automatically" Content="Connect automatically and retry if disconnected" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,12"/>
    <TextBlock Text="Panel style" Style="{StaticResource Caption}"/>
-   <ComboBox x:Name="ThemeBox" ToolTip="Choose the panel background colors" SelectedIndex="0"><ComboBoxItem Content="Midnight"/><ComboBoxItem Content="Slate"/><ComboBoxItem Content="Forest"/></ComboBox>
+   <Button x:Name="PanelColorButton" ToolTip="Choose any panel color" HorizontalContentAlignment="Stretch"><StackPanel Orientation="Horizontal"><Border x:Name="PanelSwatch" Width="22" Height="22" CornerRadius="4" BorderBrush="#8899AA" BorderThickness="1" Margin="0,0,12,0"/><TextBlock x:Name="PanelColorText" Foreground="#E2EEFC" Text="Choose panel color" VerticalAlignment="Center"/></StackPanel></Button>
    <TextBlock Text="Accent color" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
-   <ComboBox x:Name="AccentBox" ToolTip="Choose the accent and border color" SelectedIndex="0"><ComboBoxItem Content="Sky blue" Tag="#91C7F2"/><ComboBoxItem Content="Mint" Tag="#81E1B7"/><ComboBoxItem Content="Lavender" Tag="#BDA6FF"/><ComboBoxItem Content="Amber" Tag="#FFD28A"/><ComboBoxItem Content="Rose" Tag="#FFA6BF"/></ComboBox>
+   <Button x:Name="AccentColorButton" ToolTip="Choose any accent color"><StackPanel Orientation="Horizontal"><Border x:Name="AccentSwatch" Width="22" Height="22" CornerRadius="4" BorderBrush="#8899AA" BorderThickness="1" Margin="0,0,12,0"/><TextBlock x:Name="AccentColorText" Foreground="#E2EEFC" Text="Choose accent color" VerticalAlignment="Center"/></StackPanel></Button>
    <TextBlock Text="Panel opacity · subtle glass to solid" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
    <Slider x:Name="OpacitySlider" ToolTip="Adjust panel background opacity; text stays readable" Minimum="45" Maximum="100" Value="94"/>
-   <TextBlock Text="Preferences save automatically on this PC." FontSize="10" Foreground="#96A6B9" Margin="0,8,0,0"/>
+   <Button x:Name="DefaultsButton" Content="Restore appearance defaults" ToolTip="Reset panel color, accent, and opacity" Margin="0,14,0,4"/>
+   <TextBlock Text="Preferences save automatically on this PC." FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"/>
   </StackPanel></Border>
 
    </StackPanel>

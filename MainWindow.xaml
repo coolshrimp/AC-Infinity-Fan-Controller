@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="ACInfinityDesktop.MainWindow" Title="AC Infinity Desktop" Width="538" WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize" MinWidth="500" Background="Transparent" Foreground="#EEF3F8" FontFamily="Segoe UI" Icon="ui/icon.ico" Closing="Window_Closing" Loaded="Window_Loaded" SizeToContent="Height">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="ACInfinityDesktop.MainWindow" Title="AC Infinity Desktop" Width="538" WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize" MinWidth="500" Background="Transparent" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI" Icon="ui/icon.ico" Closing="Window_Closing" Loaded="Window_Loaded" SizeToContent="Height">
     <Window.Resources>
         <ResourceDictionary Source="Theme.xaml" />
     </Window.Resources>
@@ -37,7 +37,7 @@
                         <StackPanel>
                             <TextBlock Text="LOCAL BLUETOOTH" Foreground="{DynamicResource AccentBrush}" FontSize="9" />
                             <TextBlock Text="CLOUDLINE T6" FontSize="17" />
-                            <TextBlock Text="Controller 67 · Shared fan control" Foreground="#96A6B9" FontSize="11" Margin="0,4,0,0" />
+                            <TextBlock Text="Controller 67 · Shared fan control" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,0" />
                         </StackPanel>
                     </DockPanel>
                 </Border>
@@ -53,31 +53,31 @@
                         <TextBlock Text="HUMIDITY" Style="{StaticResource Caption}" />
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="HumidityText" Text="—" Style="{StaticResource Metric}" />
-                            <TextBlock Text="%" Foreground="#96A6B9" Margin="5,8,0,0" />
+                            <TextBlock Text="%" Foreground="{DynamicResource MutedBrush}" Margin="5,8,0,0" />
                         </StackPanel>
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="VPD · CALCULATED" Style="{StaticResource Caption}" />
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="VpdText" Text="—" Style="{StaticResource Metric}" />
-                            <TextBlock Text="kPa" Foreground="#96A6B9" Margin="5,8,0,0" FontSize="10" />
+                            <TextBlock Text="kPa" Foreground="{DynamicResource MutedBrush}" Margin="5,8,0,0" FontSize="10" />
                         </StackPanel>
                     </StackPanel>
                 </UniformGrid>
                 <DockPanel Margin="18,8,18,22">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <TextBlock x:Name="OutputText" Text="—" FontSize="34" FontWeight="Light" />
-                        <TextBlock Text=" / 10" Foreground="#96A6B9" VerticalAlignment="Bottom" Margin="0,0,0,7" />
+                        <TextBlock Text=" / 10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="0,0,0,7" />
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="6-inch inline fan" FontSize="14" />
-                        <TextBlock x:Name="ModeText" Text="Not connected" Foreground="#96A6B9" FontSize="11" Margin="0,4,0,0" />
-                        <TextBlock x:Name="StatusText" Text="Close other AC Infinity apps, then scan for your controller." TextWrapping="Wrap" Foreground="#AFC1D7" FontSize="11" />
+                        <TextBlock x:Name="ModeText" Text="Not connected" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,0" />
+                        <TextBlock x:Name="StatusText" Text="Close other AC Infinity apps, then scan for your controller." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
                     </StackPanel>
                 </DockPanel>
                 <DockPanel Margin="18,0,18,6">
-                    <TextBlock x:Name="SpeedValue" Text="5" DockPanel.Dock="Right" Foreground="#8FCBFA" />
-                    <TextBlock Text="Manual speed" Foreground="#B7C5D7" />
+                    <TextBlock x:Name="SpeedValue" Text="5" DockPanel.Dock="Right" Foreground="{DynamicResource MutedBrush}" />
+                    <TextBlock Text="Manual speed" Foreground="{DynamicResource MutedBrush}" />
                 </DockPanel>
                 <Slider x:Name="SpeedSlider" Minimum="1" Maximum="10" Value="5" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="Speed_Changed" IsEnabled="False" Margin="18,2,18,10" ToolTip="Choose a speed from 1 to 10, then click Apply speed" />
                 <UniformGrid Columns="3" Margin="15,8,15,10">
@@ -85,7 +85,7 @@
                     <Button x:Name="OnButton" Content="Resume On" Click="On_Click" IsEnabled="False" ToolTip="Resume manual On mode at the saved speed" />
                     <Button x:Name="ApplyButton" Content="Apply speed" Click="Apply_Click" IsEnabled="False" Background="{DynamicResource AccentBrush}" Foreground="#11283A" ToolTip="Apply the selected manual speed" />
                 </UniformGrid>
-                <TextBlock x:Name="PresetText" Text="Manual controls replace the active mode. Off mode uses the stored minimum speed." Foreground="#96A6B9" FontSize="10" TextWrapping="Wrap" Margin="18,0,18,14" />
+                <TextBlock x:Name="PresetText" Text="Manual controls replace the active mode. Off mode uses the stored minimum speed." Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="Wrap" Margin="18,0,18,14" />
                 <Border BorderBrush="#303846" BorderThickness="0,1,0,0" Padding="14,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -94,7 +94,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="UpdatedText" Text="No live readings" Foreground="#96A6B9" VerticalAlignment="Center" FontSize="10" Grid.Column="0" />
+                        <TextBlock x:Name="UpdatedText" Text="No live readings" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" FontSize="10" Grid.Column="0" />
                         <Button Content="Connection help" Click="Help_Click" Padding="10,5" Grid.Column="1" ToolTip="Open connection help" />
                         <Button Content="Stored programs" Click="Programs_Click" Padding="10,5" Grid.Column="2" ToolTip="View stored controller programs" />
                         <Button x:Name="RefreshButton" Content="Refresh" Click="Refresh_Click" IsEnabled="False" Padding="8,3" Grid.Column="3" ToolTip="Read current controller status" />
