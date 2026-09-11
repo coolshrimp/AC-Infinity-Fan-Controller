@@ -19,18 +19,11 @@ public partial class MainWindow : Window
     private readonly BluetoothWindow bluetoothWindow=new();
     private readonly ProgramsWindow programsWindow=new();
     private readonly HelpWindow helpWindow=new();
-    private readonly FanControlWindow fanControlWindow=new();
     private readonly SensorHistory history=new();
     private DateTimeOffset historySaved,fastReadUntil;
     private int? requestedSpeed;
     private string historyAddress="";
-    private Slider SpeedSlider=>fanControlWindow.SpeedSlider;
-    private TextBlock SpeedValue=>fanControlWindow.SpeedValue;
-    private TextBlock PresetText=>fanControlWindow.PresetText;
-    private Button OffButton=>fanControlWindow.OffButton;
-    private Button OnButton=>fanControlWindow.OnButton;
-    private Button ApplyButton=>fanControlWindow.ApplyButton;
-    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow,fanControlWindow};
+    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow};
     private TextBox AddressBox=>bluetoothWindow.AddressBox;
     private ListBox DevicesList=>bluetoothWindow.DevicesList;
     private Button ScanButton=>bluetoothWindow.ScanButton;
@@ -52,8 +45,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        foreach(var panel in Panels)panel.Resources=Resources;
-        SpeedSlider.ValueChanged+=Speed_Changed;OffButton.Click+=Off_Click;OnButton.Click+=On_Click;ApplyButton.Click+=Apply_Click;fanControlWindow.ProgramsButton.Click+=Programs_Click;
+        foreach(var panel in Panels){panel.Resources=Resources;panel.SizeChanged+=(_,_)=>UpdateDockedPanels();}
+        LocationChanged+=(_,_)=>UpdateDockedPanels();SizeChanged+=(_,_)=>UpdateDockedPanels();
+        SpeedSlider.ValueChanged+=Speed_Changed;ApplyButton.Click+=Apply_Click;
         ScanButton.Click+=Scan_Click;ConnectButton.Click+=Connect_Click;DisconnectButton.Click+=Disconnect_Click;
         DevicesList.SelectionChanged+=Device_Selected;bluetoothWindow.WindowsBluetoothButton.Click+=WindowsBluetooth_Click;
         AutoConnectBox.Click+=Appearance_Changed;OpacitySlider.ValueChanged+=Appearance_Changed;
@@ -80,6 +74,9 @@ public partial class MainWindow : Window
             Pin_Click(this,new RoutedEventArgs());if(!Topmost)throw new InvalidOperationException("Pin failed");
             Pin_Click(this,new RoutedEventArgs());if(Topmost)throw new InvalidOperationException("Unpin failed");
             Connection_Click(this,new RoutedEventArgs());if(!bluetoothWindow.IsVisible)throw new InvalidOperationException("Connection panel failed");
+            double oldLeft=Left,oldPanelLeft=bluetoothWindow.Left;Left+=20;
+            if(Math.Abs(bluetoothWindow.Left-oldPanelLeft)<.1)throw new InvalidOperationException("Docked window did not follow");
+            Left=oldLeft;
             Connection_Click(this,new RoutedEventArgs());
             prefs.PanelColor="#164E63";prefs.Accent="#F0ABFC";OpacitySlider.Value=65;
             if(((SolidColorBrush)Shell.Background).Color.A!=(byte)(255*65/100)||prefs.PanelColor!="#164E63"||prefs.Accent!="#F0ABFC"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
@@ -95,13 +92,13 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--transparent"))OpacitySlider.Value=45;
             if(Environment.GetCommandLineArgs().Contains("--light")){prefs.PanelColor="#F0E9D6";prefs.Accent="#CC3377";ApplyAppearance();Settings_Click(this,new RoutedEventArgs());}
-            if(Environment.GetCommandLineArgs().Contains("--controls"))Control_Click(this,new RoutedEventArgs());
+            if(Environment.GetCommandLineArgs().Contains("--controls")){prefs.WidgetView="Status";ApplyWidgetView();}
             if(Environment.GetCommandLineArgs().Contains("--readings")){prefs.WidgetView="Readings";ApplyWidgetView();}
             if(Environment.GetCommandLineArgs().Contains("--chart")){prefs.WidgetView="Chart";ApplyWidgetView();}
             if(Environment.GetCommandLineArgs().Contains("--demo"))
             {
                 var now=DateTimeOffset.Now;for(int i=0;i<1440;i++)history.Add(new SensorSample(now.AddHours(-6).AddSeconds(i*15),23+Math.Sin(i/150d),48+Math.Cos(i/170d)*3));
-                DeviceNameText.Text="Controller 67";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";StatusText.Text="Preview · simulated readings";UpdateCharts();
+                DeviceNameText.Text="Controller 67";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;ApplyButton.IsEnabled=true;StatusText.Text="Preview · simulated readings";UpdateCharts();
             }
             if(AddressBox.Text.Length!=0)throw new InvalidOperationException("Address field must start blank");
             UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
@@ -120,7 +117,7 @@ public partial class MainWindow : Window
     public async Task QuitAsync()
     {
         if(quitting)return;ClosePopups();SavePreferences();quitting=true;timer.Stop();
-        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=fanControlWindow.AllowClose=true;
+        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=true;
         SaveHistory();
         foreach(var panel in Panels)panel.Close();
         await controller.DisconnectAsync();
@@ -212,8 +209,12 @@ public partial class MainWindow : Window
     private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(controller.DisconnectAsync,"Releasing Bluetooth...");if(!controller.Connected)AddressBox.Clear();StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
     private async void Refresh_Click(object sender,RoutedEventArgs e)=>await RunAsync(controller.RefreshAsync,"",true,true);
     private async void Apply_Click(object sender,RoutedEventArgs e){int level=(int)SpeedSlider.Value;await RunAsync(async()=>{await controller.SetSpeedAsync(level);FollowRamp(level);},"Applying manual speed…");}
-    private async void On_Click(object sender,RoutedEventArgs e)=>await RunAsync(async()=>{await controller.SetModeAsync(true);FollowRamp(controller.State.On);},"Selecting On mode…");
-    private async void Off_Click(object sender,RoutedEventArgs e)=>await RunAsync(async()=>{await controller.SetModeAsync(false);FollowRamp(controller.State.Off);},"Selecting Off mode…");
+    private async void OnOff_Click(object sender,RoutedEventArgs e)
+    {
+        bool turnOn=OnOffToggle.IsChecked==true;
+        OnOffToggle.IsChecked=controller.Connected&&controller.State.Mode==2;
+        await RunAsync(async()=>{await controller.SetModeAsync(turnOn);FollowRamp(turnOn?controller.State.On:controller.State.Off);},"Updating fan mode...");
+    }
     private void Unit_Click(object sender,RoutedEventArgs e){fahrenheit=!fahrenheit;SavePreferences();UpdateView();}
     private void Pin_Click(object sender,RoutedEventArgs e){Topmost=!Topmost;foreach(var panel in Panels)panel.Topmost=Topmost;ApplyAppearance();SavePreferences();}
     private void Speed_Changed(object sender,RoutedPropertyChangedEventArgs<double> e){if(SpeedValue!=null)SpeedValue.Text=((int)e.NewValue).ToString();}
@@ -221,8 +222,8 @@ public partial class MainWindow : Window
     {
         bool live=controller.Connected;
         bool blockControls=busy&&!refreshing;
-        foreach(var b in new[]{OnButton,OffButton,ApplyButton,RefreshButton})b.IsEnabled=live&&!blockControls;
-        SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
+        foreach(var b in new[]{ApplyButton,RefreshButton})b.IsEnabled=live&&!blockControls;
+        OnOffToggle.IsEnabled=live&&!blockControls;SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
         ScanButton.Visibility=live?Visibility.Collapsed:Visibility.Visible;
         DisconnectButton.Visibility=live?Visibility.Visible:Visibility.Collapsed;DisconnectButton.IsEnabled=!blockControls;
         DevicesList.IsEnabled=!blockControls;ConnectButton.IsEnabled=!blockControls&&!live && DevicesList.SelectedItem is DiscoveredController selected && selected.SupportsControls;
@@ -240,15 +241,15 @@ public partial class MainWindow : Window
         TemperatureText.Text=live&&s.TemperatureC is double t?(fahrenheit?t*1.8+32:t).ToString("0.0"):"—";
         HumidityText.Text=live&&s.Humidity is double h?h.ToString("0.0"):"—";
         VpdText.Text=live&&s.TemperatureC is double c&&s.Humidity is double rh?(0.6108*Math.Exp(17.27*c/(c+237.3))*(1-rh/100)).ToString("0.00"):"—";
+        OnOffToggle.IsChecked=live&&s.Mode==2;OnOffToggle.Content=!live?"On / Off":s.Mode==2?"On":s.Mode==1?"Off":"Auto";
         UpdateFanAnimation(live?s.Output:null);
         OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName+(requestedSpeed.HasValue?$" · {s.Output} → {requestedSpeed}":""):"Not connected";
         UpdatedText.Text=live?$"Last updated {s.Updated:HH:mm:ss}":"No live readings";
-        PresetText.Text=live?$"Saved On: {s.On} · Off: {s.Off}. Manual controls replace the active mode. Off mode uses that saved level.":"Manual controls replace the active mode. Off mode uses the stored minimum speed.";
+        PresetText.Text=live?$"Saved On {s.On} · Off {s.Off}. Apply selects manual mode.":"Off uses the saved minimum speed; it may still spin.";
         ProgramsText.Text=live?DescribePrograms(s.Settings):"Connect to read stored timer, cycle, Auto, and schedule settings.";
         UpdateButtons();
     }
     private void FollowRamp(int target){requestedSpeed=target;fastReadUntil=DateTimeOffset.Now.AddSeconds(30);timer.Interval=TimeSpan.FromSeconds(2);}
-    private void Control_Click(object sender,RoutedEventArgs e)=>TogglePanel(fanControlWindow);
     private void View_Click(object sender,RoutedEventArgs e)
     {prefs.WidgetView=(string)((Button)sender).Tag;ApplyWidgetView();SavePreferences();}
     private void Range_Click(object sender,RoutedEventArgs e)
@@ -299,14 +300,22 @@ public partial class MainWindow : Window
     private void TogglePanel(Window panel)
     {
         bool open=!panel.IsVisible;ClosePopups();if(!open)return;
-        panel.Topmost=Topmost;panel.Show();panel.UpdateLayout();
+        panel.Topmost=Topmost;panel.Show();panel.UpdateLayout();UpdateDockedPanels();panel.Activate();
+    }
+    private void UpdateDockedPanels()
+    {
+        if(!IsLoaded||!IsVisible)return;
+        foreach(var panel in Panels.Where(p=>p.IsVisible))PositionDockedPanel(panel);
+    }
+    private void PositionDockedPanel(Window panel)
+    {
         // Prefer the space beside the widget; clamp within this monitor's work area.
         var screen=Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle).WorkingArea;
         var source=PresentationSource.FromVisual(this);var transform=source?.CompositionTarget?.TransformFromDevice??Matrix.Identity;
         var start=transform.Transform(new Point(screen.Left,screen.Top));var end=transform.Transform(new Point(screen.Right,screen.Bottom));
-        double x=Left+ActualWidth+12;if(x+panel.ActualWidth>end.X)x=Left-panel.ActualWidth-12;
-        panel.Left=Math.Clamp(x,start.X,Math.Max(start.X,end.X-panel.ActualWidth));
-        panel.Top=Math.Clamp(Top,start.Y,Math.Max(start.Y,end.Y-panel.ActualHeight));panel.Activate();
+        var position=PanelDocking.Place(new Rect(Left,Top,ActualWidth,ActualHeight),new Size(panel.ActualWidth,panel.ActualHeight),new Rect(start,end));
+        if(Math.Abs(panel.Left-position.X)>.1)panel.Left=position.X;
+        if(Math.Abs(panel.Top-position.Y)>.1)panel.Top=position.Y;
     }
     internal FrameworkElement SmokeSurface=>Panels.FirstOrDefault(p=>p.IsVisible)??(FrameworkElement)this;
     private void Tray_Click(object sender,RoutedEventArgs e){ClosePopups();SavePreferences();Hide();}

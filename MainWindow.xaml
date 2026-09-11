@@ -25,12 +25,26 @@
     <StackPanel><TextBlock Text="HUMIDITY" FontSize="9" Foreground="{DynamicResource MutedBrush}"/><StackPanel Orientation="Horizontal"><TextBlock x:Name="HumidityText" Text="—" FontSize="31" FontWeight="Light"/><TextBlock Text="%" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="4,6,0,0"/></StackPanel></StackPanel>
     <StackPanel><TextBlock Text="VPD · CALCULATED" FontSize="9" Foreground="{DynamicResource MutedBrush}"/><StackPanel Orientation="Horizontal"><TextBlock x:Name="VpdText" Text="—" FontSize="31" FontWeight="Light"/><TextBlock Text="kPa" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="4,6,0,0"/></StackPanel></StackPanel>
    </UniformGrid>
+   <Border Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="10" Margin="0,12,0,0">
+    <StackPanel>
+     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <CheckBox x:Name="OnOffToggle" Style="{StaticResource UimToggleSwitch}" Background="{DynamicResource AccentBrush}" BorderBrush="#46515F" Foreground="{DynamicResource TextBrush}" Content="On / Off" VerticalAlignment="Center" ToolTip="Switch manual On / Off mode. Off uses the saved minimum speed and may still spin." AutomationProperties.Name="Manual fan On or Off" Click="OnOff_Click"/>
+      <TextBlock Grid.Column="1" Text="Manual speed" Foreground="{DynamicResource MutedBrush}" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,8,0"/>
+      <TextBlock x:Name="SpeedValue" Grid.Column="2" Text="5" FontSize="12" VerticalAlignment="Center"/>
+     </Grid>
+     <Grid Margin="0,7,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Slider x:Name="SpeedSlider" Style="{StaticResource UimModernSlider}" Foreground="{DynamicResource AccentBrush}" Background="#46515F" Minimum="1" Maximum="10" Value="5" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1" IsMoveToPointEnabled="True" ToolTip="Choose a speed, then click Apply" VerticalAlignment="Center" Margin="0,0,10,0"/>
+      <Button x:Name="ApplyButton" Grid.Column="1" Content="Apply" Background="{DynamicResource AccentBrush}" Padding="10,4" Margin="0" ToolTip="Apply the selected speed in manual On mode"/>
+     </Grid>
+     <TextBlock x:Name="PresetText" Text="Off mode uses the saved minimum speed." FontSize="9" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+    </StackPanel>
+   </Border>
    <Border x:Name="DeviceStatusPanel" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="12" Margin="0,14,0,0">
     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
      <Image Source="ui/icon.png" Width="25" Height="25" Margin="0,0,12,0" RenderTransformOrigin="0.5,0.5"><Image.RenderTransform><RotateTransform x:Name="FanRotation"/></Image.RenderTransform></Image>
      <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Shared fan output" FontSize="12"/><TextBlock x:Name="ModeText" Text="Not connected" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0"/></StackPanel>
      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="OutputText" Text="—" FontSize="27" FontWeight="Light"/><TextBlock Text=" / 10" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="0,0,8,5"/></StackPanel>
-     <Button Grid.Column="3" Content="Control" Click="Control_Click" ToolTip="Open manual fan controls" Padding="8,5" VerticalAlignment="Center"/>
+     <Button Grid.Column="3" Content="⋯" Click="Programs_Click" ToolTip="View stored controller programs" Padding="8,5" VerticalAlignment="Center"/>
     </Grid>
    </Border>
    <StackPanel x:Name="ChartPanel" Visibility="Collapsed" Margin="0,12,0,0">

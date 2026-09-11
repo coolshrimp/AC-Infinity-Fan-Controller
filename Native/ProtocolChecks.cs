@@ -62,6 +62,14 @@ internal static class ProtocolChecks
         Check(history.Range(time,1).Count==1 && history.Range(time,6).Count==2);
         Check(history.Range(time,1)[0].Vpd>1 && history.Range(time,1)[0].Vpd<2);
         history.SelectDevice(Path.GetTempPath(),"",true);Check(history.Range(time,24).Count==0);
+        var work=new System.Windows.Rect(0,0,1920,1080);
+        var size=new System.Windows.Size(500,400);
+        Check(PanelDocking.Place(new System.Windows.Rect(100,100,450,300),size,work)==new System.Windows.Point(560,100));
+        Check(PanelDocking.Place(new System.Windows.Rect(1350,100,450,300),size,work)==new System.Windows.Point(840,100));
+        Check(PanelDocking.Place(new System.Windows.Rect(600,200,450,300),new System.Windows.Size(1000,400),work)==new System.Windows.Point(600,510));
+        Check(PanelDocking.Place(new System.Windows.Rect(600,700,450,300),new System.Windows.Size(1000,400),work)==new System.Windows.Point(600,290));
+        Check(PanelDocking.Place(new System.Windows.Rect(100,900,450,300),size,work)==new System.Windows.Point(100,490));
+        Check(PanelDocking.Place(new System.Windows.Rect(-900,100,450,300),size,new System.Windows.Rect(-1920,0,1920,1080))==new System.Windows.Point(-1410,100));
         return new {passed,framework="native .NET",hardwareWrites=false};
     }
 }

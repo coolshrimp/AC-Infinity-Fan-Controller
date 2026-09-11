@@ -1,5 +1,13 @@
 # Changes
 
+## 0.6.1
+
+- Compact On/Off toggle, speed slider, and Apply button beneath the sensor readings in every main-widget view.
+- UI Maker modern toggle and slider templates for fan controls and appearance preferences.
+- Separate settings forms dock to and follow the main window, repositioning around screen edges and when the widget changes size.
+- Stored programs remain available from Device status; the redundant Fan control form has been removed.
+- Six docking placement checks and a window-follow check supplement existing offline verification.
+
 ## 0.6.0
 
 - Compact Mac-inspired widget with saved Readings, Device Status, and Chart views.
