@@ -100,6 +100,7 @@
                         <Button x:Name="RefreshButton" Content="Refresh" Click="Refresh_Click" IsEnabled="False" Padding="8,3" Grid.Column="3" ToolTip="Read current controller status" />
                     </Grid>
                 </Border>
+                <Button Content="Created by: Coolshrimp Mods" Click="Credit_Click" ToolTip="Visit coolshrimpmodz.com" FontSize="10" Padding="8,4" HorizontalAlignment="Center" Background="Transparent" BorderBrush="Transparent" Margin="0,0,0,6"/>
             </StackPanel>
         </Border>
     </Grid>

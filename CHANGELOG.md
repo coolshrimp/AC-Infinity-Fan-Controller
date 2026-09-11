@@ -1,5 +1,11 @@
 # Changes
 
+## 0.5.1
+
+- Automatically probe discovered ACI candidates before listing them, with detected Bluetooth addresses and verification labels.
+- Show the connected user?s MAC in the address field; ship no personal controller address.
+- Add Created by: Coolshrimp Mods credit linking to https://coolshrimpmodz.com/.
+
 ## 0.5.0
 
 - Optional Bluetooth address field starts blank with discovery guidance; remembered reconnection remains local to each user.

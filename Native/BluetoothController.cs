@@ -14,6 +14,9 @@ namespace ACInfinityDesktop;
 
 public sealed record DiscoveredController(ulong Address, string Name, short Rssi, int? Type)
 {
+    public bool Verified {get;init;}
+    public bool SupportsControls => Verified && (Type is null or 1);
+    public string Verification => !Verified?"Not checked":SupportsControls?"Verified controller":"AC Infinity service verified; model not supported yet";
     public string Mac => string.Join(":", Enumerable.Range(0, 6).Select(i => ((Address >> (8 * (5 - i))) & 255).ToString("X2")));
     public string Display => $"{Name}  ·  {Mac}  ·  {Rssi} dBm";
 }
@@ -36,6 +39,7 @@ public sealed class BluetoothController
     public bool Connected => verified && device?.ConnectionStatus == BluetoothConnectionStatus.Connected;
     public ControllerState State { get; private set; } = new();
 
+    internal static bool IsAciName(string name)=>name.StartsWith("ACI",StringComparison.OrdinalIgnoreCase)||name.StartsWith("AC Infinity",StringComparison.OrdinalIgnoreCase);
     public static async Task<List<DiscoveredController>> ScanAsync(string target)
     {
         if (target.Length > 0 && !Regex.IsMatch(target, "^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")) throw new ArgumentException("Enter a Bluetooth MAC address, or leave it empty.");
@@ -48,7 +52,7 @@ public sealed class BluetoothController
             if (wanted.HasValue && e.BluetoothAddress != wanted.Value) return;
             var data = e.Advertisement.ManufacturerData.FirstOrDefault(x => x.CompanyId == 2306);
             string name = e.Advertisement.LocalName;
-            if (!wanted.HasValue && data == null && !name.StartsWith("ACI-", StringComparison.OrdinalIgnoreCase)) return;
+            if (!wanted.HasValue && data == null && !IsAciName(name)) return;
             int? type = null;
             if (data != null)
             {
@@ -58,7 +62,7 @@ public sealed class BluetoothController
             lock (found)
             {
                 found.TryGetValue(e.BluetoothAddress, out var previous);
-                found[e.BluetoothAddress] = new(e.BluetoothAddress, string.IsNullOrEmpty(name) ? previous?.Name ?? "Controller 67" : name, e.RawSignalStrengthInDBm, type ?? previous?.Type);
+                found[e.BluetoothAddress] = new(e.BluetoothAddress, string.IsNullOrEmpty(name) ? previous?.Name ?? "AC Infinity device" : name, e.RawSignalStrengthInDBm, type ?? previous?.Type);
             }
         };
         watcher.Stopped += (_, e) => scanError = e.Error;
@@ -68,13 +72,20 @@ public sealed class BluetoothController
         lock (found) return found.Values.OrderByDescending(x => x.Rssi).ToList();
     }
 
-    public async Task ConnectAsync(DiscoveredController target)
+    public Task ConnectAsync(DiscoveredController target)=>ConnectCoreAsync(target,false);
+    public static async Task<DiscoveredController> VerifyAsync(DiscoveredController target)
+    {
+        var probe=new BluetoothController();
+        try{await probe.ConnectCoreAsync(target,true);return target with {Verified=true};}
+        finally{await probe.DisconnectAsync();}
+    }
+    private async Task ConnectCoreAsync(DiscoveredController target,bool identifyOnly)
     {
         await gate.WaitAsync();
         try
         {
             await DisconnectCoreAsync();
-            if (target.Type.HasValue && target.Type != 1) throw new NotSupportedException("This build supports Controller 67 (type 1).");
+            if (!identifyOnly && target.Type.HasValue && target.Type != 1) throw new NotSupportedException("This build supports Controller 67 (type 1).");
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
             var token = deadline.Token;
             device = await BluetoothLEDevice.FromBluetoothAddressAsync(target.Address).AsTask(token) ?? throw new IOException("Windows could not open the controller.");
@@ -86,6 +97,9 @@ public sealed class BluetoothController
             writer = chars.Characteristics.FirstOrDefault(x => x.Uuid == WriteId);
             reader = chars.Characteristics.FirstOrDefault(x => x.Uuid == NotifyId);
             if (writer == null || reader == null || !reader.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify)) throw new IOException("Expected AC Infinity characteristics were not found.");
+            // Other advertised models can be identified by the vendor service, but their
+            // control schema is not assumed to match Controller 67.
+            if(identifyOnly && target.Type.HasValue && target.Type!=1)return;
             reader.ValueChanged += Received;
             Check(await reader.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.Notify).AsTask(token));
             State = new();

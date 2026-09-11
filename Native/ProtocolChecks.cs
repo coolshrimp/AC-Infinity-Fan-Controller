@@ -47,6 +47,13 @@ internal static class ProtocolChecks
             owner.Listen(()=>activated.Set());Check(activated.Wait(5000));
         }
         using(var replacement=new SingleInstance("ACInfinityDesktop.Test."+testId))Check(replacement.IsPrimary);
+        Check(BluetoothController.IsAciName("ACI-UniversalController"));
+        Check(BluetoothController.IsAciName("aci Controller"));
+        Check(!BluetoothController.IsAciName("Headphones"));
+        var candidate=new DiscoveredController(0xAABBCCDDEEFF,"ACI",-60,1);
+        Check(!candidate.SupportsControls);
+        Check((candidate with {Verified=true}).SupportsControls);
+        Check(!(candidate with {Verified=true,Type=2}).SupportsControls);
         return new {passed,framework="native .NET",hardwareWrites=false};
     }
 }

@@ -75,7 +75,7 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--settings"))Settings_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--bluetooth"))
             {
-                DevicesList.ItemsSource=new[]{new DiscoveredController(0xAABBCCDDEEFF,"Example Controller 67",-65,1)};
+                DevicesList.ItemsSource=new[]{new DiscoveredController(0xAABBCCDDEEFF,"Example Controller 67",-65,1){Verified=true}};
                 Connection_Click(this,new RoutedEventArgs());
             }
             if(Environment.GetCommandLineArgs().Contains("--programs"))Programs_Click(this,new RoutedEventArgs());
@@ -116,18 +116,41 @@ public partial class MainWindow : Window
         if(smoke||busy||quitting||controller.Connected||!reconnect.Due(prefs.AutoConnect,DateTime.UtcNow))return;
         await RunAsync(async()=>
         {
-            var found=(await BluetoothController.ScanAsync(prefs.address)).Where(d=>d.Type==1||(d.Type==null&&prefs.address.Length>0)).ToList();
+            var found=await DiscoverVerifiedAsync(prefs.address);
             if(quitting)return;
             DevicesList.ItemsSource=found;
-            if(found.Count==1)await ConnectTargetAsync(found[0]);
-            else {reconnect.Failed(DateTime.UtcNow);StatusText.Text=found.Count>1?"Several controllers found. Click the status icon to choose one.":"Waiting for your controller. Retrying automatically…";}
+            var supported=found.Where(d=>d.SupportsControls).ToList();
+            if(supported.Count==1)await ConnectTargetAsync(supported[0]);
+            else {reconnect.Failed(DateTime.UtcNow);StatusText.Text=supported.Count>1?"Several verified controllers found. Choose one in Bluetooth settings.":found.Count>0?"AC Infinity devices found, but their models do not support control in this version.":"No controller verified yet. Retrying automatically; close other controller apps if needed.";}
         },"Looking for your controller…",true);
+    }
+    private async Task<List<DiscoveredController>> DiscoverVerifiedAsync(string address)
+    {
+        var candidates=await BluetoothController.ScanAsync(address);
+        var verified=new List<DiscoveredController>();int failed=0;
+        DevicesList.ItemsSource=verified.ToArray();DevicesList.Visibility=Visibility.Visible;
+        foreach(var candidate in candidates)
+        {
+            if(quitting)break;
+            StatusText.Text=$"Checking {candidate.Name} ({verified.Count+failed+1}/{candidates.Count})?";
+            try
+            {
+                var result=await BluetoothController.VerifyAsync(candidate);
+                if(quitting)break;
+                verified.Add(result);DevicesList.ItemsSource=verified.ToArray();
+            }
+            catch(Exception ex) when(ex is IOException or InvalidOperationException or OperationCanceledException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
+            {failed++;}
+        }
+        ConnectButton.Visibility=Visibility.Visible;
+        StatusText.Text=$"{verified.Count} verified controller(s)."+(failed>0?$" {failed} could not be verified; move closer or close other controller apps and rescan.":"");
+        return verified;
     }
     private async Task ConnectTargetAsync(DiscoveredController target)
     {
         await controller.ConnectAsync(target);
         if(quitting){await controller.DisconnectAsync();return;}
-        prefs.address=target.Mac;reconnect.Reset();SavePreferences();
+        prefs.address=target.Mac;AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
         DevicesList.Visibility=Visibility.Collapsed;ConnectButton.Visibility=Visibility.Collapsed;
         SpeedSlider.Value=controller.State.On is >=1 and <=10?controller.State.On:5;
         StatusText.Text="Connected. Live readings refresh every 15 seconds.";
@@ -149,21 +172,21 @@ public partial class MainWindow : Window
         if(busy)return;
         await RunAsync(async()=>
         {
-            reconnect.Reset();var address=AddressBox.Text.Trim();var devices=await BluetoothController.ScanAsync(address);
+            reconnect.Reset();var address=AddressBox.Text.Trim();var devices=await DiscoverVerifiedAsync(address);
             if(quitting)return;
-            var compatible=devices.Where(d=>d.Type==1 || (d.Type==null && address.Length>0)).ToList();
+            var compatible=devices;var supported=devices.Where(d=>d.SupportsControls).ToList();
             DevicesList.ItemsSource=compatible;DevicesList.Visibility=Visibility.Visible;ConnectButton.Visibility=Visibility.Visible;
-            if(compatible.Count==1 && prefs.AutoConnect)await ConnectTargetAsync(compatible[0]);
-            else StatusText.Text=compatible.Count>0?"Choose a controller below.":"No matching controller found.";
+            if(supported.Count==1 && prefs.AutoConnect)await ConnectTargetAsync(supported[0]);
+            else StatusText.Text=supported.Count>0?"Choose a verified controller below.":compatible.Count>0?"Detected models are not supported for control yet.":"No controller could be verified. Move closer, close other controller apps, and rescan.";
         },"Scanning nearby Bluetooth devices…",true);
     }
     private async void Connect_Click(object sender,RoutedEventArgs e)
     {
-        if(DevicesList.SelectedItem is not DiscoveredController target)return;
+        if(DevicesList.SelectedItem is not DiscoveredController target || !target.SupportsControls)return;
         reconnect.Reset();await RunAsync(()=>ConnectTargetAsync(target),"Connecting and validating Controller 67 settings…");
     }
     private void Device_Selected(object sender,SelectionChangedEventArgs e)=>UpdateButtons();
-    private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(controller.DisconnectAsync,"Releasing Bluetooth…");StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
+    private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(controller.DisconnectAsync,"Releasing Bluetooth...");if(!controller.Connected)AddressBox.Clear();StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
     private async void Refresh_Click(object sender,RoutedEventArgs e)=>await RunAsync(controller.RefreshAsync,"",true,true);
     private async void Apply_Click(object sender,RoutedEventArgs e){int level=(int)SpeedSlider.Value;await RunAsync(()=>controller.SetSpeedAsync(level),"Applying manual speed…");}
     private async void On_Click(object sender,RoutedEventArgs e)=>await RunAsync(()=>controller.SetModeAsync(true),"Selecting On mode…");
@@ -179,7 +202,7 @@ public partial class MainWindow : Window
         SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
         ScanButton.Visibility=live?Visibility.Collapsed:Visibility.Visible;
         DisconnectButton.Visibility=live?Visibility.Visible:Visibility.Collapsed;DisconnectButton.IsEnabled=!blockControls;
-        DevicesList.IsEnabled=!blockControls;ConnectButton.IsEnabled=!blockControls && DevicesList.SelectedItem!=null;
+        DevicesList.IsEnabled=!blockControls;ConnectButton.IsEnabled=!blockControls&&!live && DevicesList.SelectedItem is DiscoveredController selected && selected.SupportsControls;
     }
     private void UpdateView()
     {
@@ -217,6 +240,7 @@ public partial class MainWindow : Window
         if(DevicesList.Items.Count>0){DevicesList.Visibility=Visibility.Visible;ConnectButton.Visibility=Visibility.Visible;}
         TogglePanel(bluetoothWindow);
     }
+    private void Credit_Click(object sender,RoutedEventArgs e)=>Branding.OpenWebsite(this);
     private void Settings_Click(object sender,RoutedEventArgs e)=>TogglePanel(appearanceWindow);
     private void Programs_Click(object sender,RoutedEventArgs e)=>TogglePanel(programsWindow);
     private void Help_Click(object sender,RoutedEventArgs e)=>TogglePanel(helpWindow);
