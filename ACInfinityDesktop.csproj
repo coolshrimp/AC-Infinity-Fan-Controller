@@ -9,12 +9,12 @@
     <EnableDefaultItems>false</EnableDefaultItems>
     <RootNamespace>ACInfinityDesktop</RootNamespace>
     <AssemblyName>AC-Infinity-Desktop</AssemblyName>
-    <Version>0.4.2</Version>
+    <Version>0.4.3</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <EnableCompressionInSingleFile Condition="'$(SelfContained)' == 'true'">true</EnableCompressionInSingleFile>
     <PublishTrimmed>false</PublishTrimmed>
     <DebugType>embedded</DebugType>
     <ApplicationIcon>ui\icon.ico</ApplicationIcon>

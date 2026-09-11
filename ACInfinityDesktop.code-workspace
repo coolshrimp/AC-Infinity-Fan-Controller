@@ -1,0 +1,12 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "uimaker.publish.singleFile": true,
+    "uimaker.publish.selfContained": true,
+    "uimaker.publish.runtime": "win-x64"
+  }
+}

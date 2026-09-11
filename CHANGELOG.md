@@ -1,5 +1,10 @@
 # Changes
 
+## 0.4.3
+
+- Bundle compression is conditional on self-contained publishing, fixing NETSDK1176 when UI Maker overrides the setting.
+- Added a dedicated VS Code workspace with single-file, self-contained Windows x64 publishing enabled.
+
 ## 0.4.2
 
 - Status refreshes no longer dim buttons or interrupt slider interaction.

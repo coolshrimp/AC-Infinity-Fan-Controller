@@ -4,7 +4,7 @@ A compact Windows Bluetooth widget for AC Infinity **Controller 67 (CTR67A)** an
 
 ## Run
 
-Open `Releases/dotnet-0.4.2/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
+Open `Releases/dotnet-0.4.3/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
 
 Quit an older running copy using its tray menu before opening this version. Close other phone/Mac controller connections so Bluetooth is available.
 
@@ -36,23 +36,25 @@ Connection, temperature unit, pin state, appearance, and position are saved loca
 
 ## UI Maker / development
 
-Open this folder in VS Code and select `ACInfinityDesktop.csproj` in UI Maker. Edit each form separately in its WPF designer: `MainWindow.xaml`, `BluetoothWindow.xaml`, `AppearanceWindow.xaml`, `ProgramsWindow.xaml`, and `HelpWindow.xaml`. Shared colors and control styles live in `Theme.xaml`. All windows are explicitly included in the project and have their own `.xaml.cs` code-behind. Development requires the .NET 10 SDK.
+Open `ACInfinityDesktop.code-workspace` in VS Code (or open this project folder directly) to load the included UI Maker single-file/self-contained release settings. Select `ACInfinityDesktop.csproj` in UI Maker. Edit each form separately in its WPF designer: `MainWindow.xaml`, `BluetoothWindow.xaml`, `AppearanceWindow.xaml`, `ProgramsWindow.xaml`, and `HelpWindow.xaml`. Shared colors and control styles live in `Theme.xaml`. All windows are explicitly included in the project and have their own `.xaml.cs` code-behind. Development requires the .NET 10 SDK.
 
 ```powershell
 dotnet build ACInfinityDesktop.csproj -c Release
 ./publish.ps1
 ```
 
-The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.4.2`. WPF trimming is disabled. Windows Forms is used only for the tray icon.
+The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.4.3`. WPF trimming is disabled. Windows Forms is used only for the tray icon.
+
+If UI Maker reports NETSDK1176, its command has forced `--self-contained false`. Compression now turns off automatically for that mode, but the resulting executable requires the .NET Desktop Runtime. For the standalone release, use the included workspace settings or `./publish.ps1`. A parent workspace selecting this folder through UI Maker does not load this folder's `.vscode/settings.json`; open the supplied `.code-workspace` file to use the project settings.
 
 ## Verification
 
 The release passes 29 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preference migration and round-trip storage, and reconnect delay/pause/reset behavior. Offline window checks exercise pin/unpin, connection panel visibility, appearance changes, and tray hide/restore before rendering a screenshot. Window checks also verify the main widget stays 540 × 740.
 
 ```powershell
-& ./Releases/dotnet-0.4.2/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
-& ./Releases/dotnet-0.4.2/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
-& ./Releases/dotnet-0.4.2/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
+& ./Releases/dotnet-0.4.3/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
+& ./Releases/dotnet-0.4.3/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
+& ./Releases/dotnet-0.4.3/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
 ```
 
 Add `--bluetooth` to smoke mode to render the Bluetooth window; `--settings` renders the appearance window.
@@ -77,4 +79,4 @@ Only Controller 67 is supported. The two fan connections share programming; the 
 - `Properties/PublishProfiles/SingleExe.pubxml`: release profile
 - `vendor/`: retained upstream protocol license notices
 
-The local Git repository tracks the native project, artwork, and documentation. Generated binaries, caches, diagnostic captures, and device addresses are excluded. Obsolete Electron/Python prototypes and superseded releases have been removed from the working folder. Local protocol findings and current verification captures remain under diagnostics; the current executable is under Releases/dotnet-0.4.2. No remote is configured and nothing is published. Before publishing externally, choose a license for the new application code and retain the included third-party notices. Report issues with Windows version, controller model, and reproduction steps; redact Bluetooth addresses and personal diagnostic data.
+The local Git repository tracks the native project, artwork, and documentation. Generated binaries, caches, diagnostic captures, and device addresses are excluded. Obsolete Electron/Python prototypes and superseded releases have been removed from the working folder. Local protocol findings and current verification captures remain under diagnostics; the current executable is under Releases/dotnet-0.4.3. No remote is configured and nothing is published. Before publishing externally, choose a license for the new application code and retain the included third-party notices. Report issues with Windows version, controller model, and reproduction steps; redact Bluetooth addresses and personal diagnostic data.
