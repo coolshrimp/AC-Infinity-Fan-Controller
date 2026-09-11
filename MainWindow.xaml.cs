@@ -258,7 +258,7 @@ public partial class MainWindow : Window
         var palette=prefs.Theme=="Slate"?new[]{"#303D50","#233042","#384A61"}:prefs.Theme=="Forest"?new[]{"#1C302C","#12231F","#294239"}:new[]{"#171A20","#11151A","#1D222D"};
         SolidColorBrush Glass(string value){var color=(Color)ColorConverter.ConvertFromString(value);color.A=(byte)(255*Math.Clamp(prefs.Transparency,45,100)/100);return new(color);}
         Resources["WindowBrush"]=Glass(palette[0]);Resources["CardBrush"]=Glass(palette[1]);Resources["HeaderBrush"]=Glass(palette[2]);
-        PinButton.Content=Topmost?"◆":"◇";PinButton.ToolTip=Topmost?"Unpin from top":"Pin on top";
+        PinTilt.Angle=Topmost?0:45;PinButton.ToolTip=Topmost?"Unpin from top":"Pin on top";
         PinButton.Foreground=Topmost?(Brush)Resources["AccentBrush"]:Brushes.LightSteelBlue;
     }
     private static string DescribePrograms(Dictionary<byte,byte[]> f)
