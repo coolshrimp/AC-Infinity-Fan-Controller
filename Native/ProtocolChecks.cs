@@ -34,6 +34,12 @@ internal static class ProtocolChecks
             var pref=Preferences.Read(path);Check(pref.address=="AA:BB:CC:DD:EE:FF"&&pref.unit=="F"&&pref.AutoConnect);
             pref.PanelColor="#164E63";pref.Pinned=true;pref.Transparency=65;pref.Theme="Forest";pref.AutoConnect=false;pref.Save(path);
             var saved=Preferences.Read(path);Check(saved.PanelColor=="#164E63"&&saved.Pinned&&saved.Transparency==65&&saved.Theme=="Forest"&&!saved.AutoConnect);
+            Check(saved.DisplayName()=="AC Infinity");
+            saved.Rename("  Workshop fan  ");saved.Save(path);
+            var renamed=Preferences.Read(path);Check(renamed.DisplayName()=="Workshop fan");
+            renamed.address="11:22:33:44:55:66";Check(renamed.DisplayName()=="AC Infinity");
+            renamed.address="aa:bb:cc:dd:ee:ff";Check(renamed.DisplayName()=="Workshop fan");
+            renamed.Rename(" ");Check(renamed.DisplayName()=="AC Infinity");
             File.WriteAllText(path,"broken");Check(Preferences.Read(path).AutoConnect);
         } finally {File.Delete(path);Directory.Delete(dir);}
         var testId=Guid.NewGuid();

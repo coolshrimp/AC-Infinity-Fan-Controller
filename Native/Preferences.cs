@@ -1,11 +1,25 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Text.Json;
 namespace ACInfinityDesktop;
 public sealed class Preferences
 {
     public string address {get;set;}="";
     public string DeviceName {get;set;}="Choose device";
+    public int? ControllerType {get;set;}
+    public Dictionary<string,string> DisplayNames {get;set;}=new();
+    public string DisplayName()
+    {
+        if(!string.IsNullOrEmpty(address)&&DisplayNames!=null&&DisplayNames.TryGetValue(address.ToUpperInvariant(),out var name)&&!string.IsNullOrWhiteSpace(name))return name.Trim();
+        return "AC Infinity";
+    }
+    public void Rename(string name)
+    {
+        if(string.IsNullOrEmpty(address))return;
+        DisplayNames??=new();var key=address.ToUpperInvariant();name=name.Trim();
+        if(name.Length==0)DisplayNames.Remove(key);else DisplayNames[key]=name[..Math.Min(name.Length,40)];
+    }
     public string WidgetView {get;set;}="Status";
     public int HistoryHours {get;set;}=6;
     public string unit {get;set;}="C";

@@ -6,7 +6,7 @@ A compact Windows Bluetooth widget for AC Infinity **Controller 67 (CTR67A)** an
 
 ## Run
 
-Open `Releases/dotnet-0.6.2/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
+Open `Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
 
 Quit an older running copy using its tray menu before opening this version. Close other phone/Mac controller connections so Bluetooth is available.
 
@@ -17,6 +17,8 @@ The compact card has three saved views, inspired by the AC Infinity Mac widgets:
 - **Readings**: temperature, humidity, and calculated VPD.
 - **Device status**: the same readings plus the shared fan output, active mode, and a stored-programs button.
 - **Chart**: separate temperature, humidity, and VPD plots with 1h / 6h / 24h ranges. Each series has its own labeled scale; gaps longer than 60 seconds are not connected.
+
+The heading defaults to **AC Infinity**. In Bluetooth settings, **Name on widget** saves a friendly name (for example, CLOUDLINE T6 or Workshop fan) separately for each controller on this PC. Blank restores the default. Technical advertised names and controller identification stay in Bluetooth settings. Existing saved Bluetooth names are not reused as the widget heading.
 
 Click the device name to choose a controller or manage Bluetooth. The header shows the last successful read and connection status. A compact On/Off toggle and speed slider sit directly below the readings in every view. The thumb follows reported output when idle; dragging selects a target and releasing applies it without confirmation. The colored fill and number always represent the latest reported output, independently of the target. Stored programs are available from the three-dot button in Device status. The widget view and chart range are remembered across launches.
 
@@ -58,18 +60,18 @@ dotnet build ACInfinityDesktop.csproj -c Release
 ./publish.ps1
 ```
 
-The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.6.2`. WPF trimming is disabled. Windows Forms provides the tray icon, color picker, and monitor work-area lookup.
+The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.6.3`. WPF trimming is disabled. Windows Forms provides the tray icon, color picker, and monitor work-area lookup.
 
 If UI Maker reports NETSDK1176, its command has forced `--self-contained false`. Compression now turns off automatically for that mode, but the resulting executable requires the .NET Desktop Runtime. For the standalone release, use the included workspace settings or `./publish.ps1`. A parent workspace selecting this folder through UI Maker does not load this folder's `.vscode/settings.json`; open the supplied `.code-workspace` file to use the project settings.
 
 ## Verification
 
-The release passes 60 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preferences, reconnect behavior, single-instance activation, device eligibility, history, docking placement, and adaptive polling transitions. Offline window checks exercise release-only slider submission, telemetry during editing, duplicate/unchanged releases, pin/unpin, a connection panel following the widget, appearance changes, and tray hide/restore before rendering a screenshot. The main widget is 450 logical pixels wide and sizes vertically to its selected view.
+The release passes 65 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preferences, reconnect behavior, single-instance activation, device eligibility, history, docking placement, and adaptive polling transitions. Offline window checks exercise release-only slider submission, telemetry during editing, duplicate/unchanged releases, pin/unpin, a connection panel following the widget, appearance changes, and tray hide/restore before rendering a screenshot. The main widget is 450 logical pixels wide and sizes vertically to its selected view.
 
 ```powershell
-& ./Releases/dotnet-0.6.2/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
-& ./Releases/dotnet-0.6.2/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
-& ./Releases/dotnet-0.6.2/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
+& ./Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
+& ./Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
+& ./Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
 ```
 
 Add `--bluetooth` to smoke mode to render the Bluetooth window; `--settings` renders the appearance window.
@@ -82,7 +84,7 @@ Native Bluetooth reads were verified on real Controller 67 hardware during devel
 
 ## Scope and limitations
 
-Fan controls support Controller 67-compatible verified responses. Other advertised model types may be identified through their AC Infinity GATT service but are listed as unsupported for control. New discovery verification has offline coverage; additional hardware/model verification remains necessary. The two fan connections share programming; the app does not discover individual attached fans. VPD is calculated from air temperature and humidity without a leaf-temperature offset. This is not a Controller AI/Wi-Fi cloud client. Weak Bluetooth signal and another app holding the connection can prevent connection.
+Fan controls support Controller 67-compatible verified responses. Other advertised model types may be identified through their AC Infinity GATT service but are listed as unsupported for control. New discovery verification has offline coverage; additional hardware/model verification remains necessary. The two fan connections share programming; the app does not discover individual attached fans. Controller 67 (CTR67A) identifies the controller, not the fan attached to it. The current Bluetooth replies do not supply the attached fan model; a friendly name is a user label, not detected hardware identity. An advertised type of 1 is mapped to Controller 67; a validated compatible protocol without that type is labeled as an unconfirmed exact model. VPD is calculated from air temperature and humidity without a leaf-temperature offset. This is not a Controller AI/Wi-Fi cloud client. Weak Bluetooth signal and another app holding the connection can prevent connection.
 
 ## Source layout and repository
 
@@ -100,4 +102,4 @@ Fan controls support Controller 67-compatible verified responses. Other advertis
 - `Properties/PublishProfiles/SingleExe.pubxml`: release profile
 - `vendor/`: retained upstream protocol license notices
 
-The local Git repository tracks the native project, artwork, and documentation. Generated binaries, caches, diagnostic captures, and device addresses are excluded. Obsolete Electron/Python prototypes and superseded releases have been removed from the working folder. Local protocol findings and current verification captures remain under diagnostics; the current executable is under Releases/dotnet-0.6.2. No remote is configured and nothing is published. Before publishing externally, choose a license for the new application code and retain the included third-party notices. Report issues with Windows version, controller model, and reproduction steps; redact Bluetooth addresses and personal diagnostic data.
+The local Git repository tracks the native project, artwork, and documentation. Generated binaries, caches, diagnostic captures, and device addresses are excluded. Obsolete Electron/Python prototypes and superseded releases have been removed from the working folder. Local protocol findings and current verification captures remain under diagnostics; the current executable is under Releases/dotnet-0.6.3. No remote is configured and nothing is published. Before publishing externally, choose a license for the new application code and retain the included third-party notices. Report issues with Windows version, controller model, and reproduction steps; redact Bluetooth addresses and personal diagnostic data.

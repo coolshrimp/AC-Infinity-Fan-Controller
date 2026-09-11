@@ -9,7 +9,7 @@
     <EnableDefaultItems>false</EnableDefaultItems>
     <RootNamespace>ACInfinityDesktop</RootNamespace>
     <AssemblyName>AC-Infinity-Desktop</AssemblyName>
-    <Version>0.6.2</Version>
+    <Version>0.6.3</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>

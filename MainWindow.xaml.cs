@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly SpeedPolling speedPolling=new();
     private bool editingSpeed, submittingSpeed;
     private double speedAtStart;
+    private bool loadingDisplayName;
     private readonly List<int> smokeSpeedCommands=new();
     private string historyAddress="";
     private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow};
@@ -64,6 +65,7 @@ public partial class MainWindow : Window
         appearanceWindow.PanelColorButton.Click+=(_,_)=>PickColor(false);
         appearanceWindow.AccentColorButton.Click+=(_,_)=>PickColor(true);
         appearanceWindow.DefaultsButton.Click+=RestoreAppearance;
+        bluetoothWindow.DisplayNameBox.TextChanged+=DisplayName_Changed;
         bluetoothWindow.ConnectionStatusText.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding("Text"){Source=StatusText});
         prefs=smoke?new():Preferences.Read(preferences);
         AddressBox.Text="";fahrenheit=prefs.unit=="F";
@@ -72,7 +74,7 @@ public partial class MainWindow : Window
         if(prefs.Left is double x && prefs.Top is double y && double.IsFinite(x)&&double.IsFinite(y))
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
         historyAddress=prefs.address;history.SelectDevice(Path.GetDirectoryName(preferences)!,prefs.address,smoke);
-        initialized=true;ApplyAppearance();ApplyWidgetView();
+        initialized=true;UpdateDeviceIdentity();ApplyAppearance();ApplyWidgetView();
         IsVisibleChanged+=(_,_)=>UpdateFanAnimation(controller.Connected?controller.State.Output:null);
         timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true,true);else {UpdateView();await AutoConnectAsync();}};
         UpdateView();
@@ -120,7 +122,7 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--demo"))
             {
                 var now=DateTimeOffset.Now;for(int i=0;i<1440;i++)history.Add(new SensorSample(now.AddHours(-6).AddSeconds(i*15),23+Math.Sin(i/150d),48+Math.Cos(i/170d)*3));
-                DeviceNameText.Text="Controller 67";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;SpeedSlider.Tag=6d;SpeedValue.Text="6 / 10";StatusText.Text="Preview · simulated readings";UpdateCharts();
+                DeviceNameText.Text="Example fan";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;SpeedSlider.Tag=6d;SpeedValue.Text="6 / 10";StatusText.Text="Preview · simulated readings";UpdateCharts();
             }
             if(AddressBox.Text.Length!=0)throw new InvalidOperationException("Address field must start blank");
             UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
@@ -173,7 +175,7 @@ public partial class MainWindow : Window
         foreach(var candidate in candidates)
         {
             if(quitting)break;
-            StatusText.Text=$"Checking {candidate.Name} ({verified.Count+failed+1}/{candidates.Count})?";
+            StatusText.Text=$"Checking nearby controller {verified.Count+failed+1} of {candidates.Count}...";
             try
             {
                 var result=await BluetoothController.VerifyAsync(candidate);
@@ -187,12 +189,27 @@ public partial class MainWindow : Window
         StatusText.Text=$"{verified.Count} verified controller(s)."+(failed>0?$" {failed} could not be verified; move closer or close other controller apps and rescan.":"");
         return verified;
     }
+    private void UpdateDeviceIdentity()
+    {
+        loadingDisplayName=true;
+        bool selected=!string.IsNullOrEmpty(prefs.address);
+        bluetoothWindow.DisplayNameBox.IsEnabled=selected;
+        bluetoothWindow.DisplayNameBox.Text=prefs.DisplayName()=="AC Infinity"?"":prefs.DisplayName();
+        bluetoothWindow.BluetoothNameText.Text=selected?"Bluetooth name: "+prefs.DeviceName:"Bluetooth name: no controller selected";
+        bluetoothWindow.ControllerModelText.Text=!selected?"Controller: not identified":prefs.ControllerType==1?"Controller: Controller 67 (CTR67A)":"Controller 67-compatible connection; exact model unconfirmed";
+        DeviceNameText.Text=prefs.DisplayName();loadingDisplayName=false;
+    }
+    private void DisplayName_Changed(object sender,TextChangedEventArgs e)
+    {
+        if(loadingDisplayName||!initialized)return;
+        prefs.Rename(bluetoothWindow.DisplayNameBox.Text);DeviceNameText.Text=prefs.DisplayName();DeviceNameText.ToolTip=DeviceNameText.Text;SavePreferences();
+    }
     private async Task ConnectTargetAsync(DiscoveredController target)
     {
         await controller.ConnectAsync(target);
         if(quitting){await controller.DisconnectAsync();return;}
         if(historyAddress!=target.Mac){SaveHistory();history.SelectDevice(Path.GetDirectoryName(preferences)!,target.Mac,smoke);historyAddress=target.Mac;}
-        prefs.DeviceName=target.Name;prefs.address=target.Mac;AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
+        prefs.DeviceName=target.Name;prefs.ControllerType=target.Type;prefs.address=target.Mac;UpdateDeviceIdentity();AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
         DevicesList.Visibility=Visibility.Collapsed;ConnectButton.Visibility=Visibility.Collapsed;
         SpeedSlider.Value=controller.State.Output??0;
         StatusText.Text="Connected. Readings refresh every 10 seconds, or 2 seconds while changing.";
@@ -276,7 +293,7 @@ public partial class MainWindow : Window
     private void UpdateView()
     {
         bool live=controller.Connected;var s=controller.State;
-        DeviceNameText.Text=prefs.address.Length>0?(prefs.DeviceName=="Choose device"?"Controller 67":prefs.DeviceName):"Choose device";
+        DeviceNameText.Text=prefs.DisplayName();
         DeviceNameText.ToolTip=DeviceNameText.Text;
         if(live&&s.TemperatureC is double ht&&s.Humidity is double hr && history.Add(new SensorSample(s.Updated,ht,hr)) && DateTimeOffset.Now-historySaved>TimeSpan.FromMinutes(1))SaveHistory();
         UpdateCharts();

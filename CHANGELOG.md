@@ -1,5 +1,12 @@
 # Changes
 
+## 0.6.3
+
+- Friendly AC Infinity heading replaces technical Bluetooth advertisement names on the widget.
+- Per-controller Name on widget field in Bluetooth settings, stored locally and retained across reconnects.
+- Bluetooth name and controller identification remain in settings; fan labels are not presented as detected model numbers.
+- Generic discovery progress keeps technical device names off the main panel.
+
 ## 0.6.2
 
 - Slider follows reported fan output; dragging previews a target and releasing applies it once, without an Apply button. Keyboard adjustments apply on key release.
