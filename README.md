@@ -6,7 +6,7 @@ A compact Windows Bluetooth widget for AC Infinity **Controller 67 (CTR67A)** an
 
 ## Run
 
-Open `Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
+Open `Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
 
 Quit an older running copy using its tray menu before opening this version. Close other phone/Mac controller connections so Bluetooth is available.
 
@@ -14,13 +14,13 @@ Quit an older running copy using its tray menu before opening this version. Clos
 
 The compact card has three saved views, inspired by the AC Infinity Mac widgets:
 
-- **Readings**: temperature, humidity, and calculated VPD.
-- **Device status**: the same readings plus the shared fan output, active mode, and a stored-programs button.
+- **Readings**: temperature, humidity, calculated VPD, and a compact fan card. Hover the readings for explanations, including the meaning of VPD.
+- **Device status**: the same readings and fan card, with active mode shown above its controls.
 - **Chart**: separate temperature, humidity, and VPD plots with 1h / 6h / 24h ranges. Each series has its own labeled scale; gaps longer than 60 seconds are not connected.
 
-The heading defaults to **AC Infinity**. In Bluetooth settings, **Name on widget** saves a friendly name (for example, CLOUDLINE T6 or Workshop fan) separately for each controller on this PC. Blank restores the default. Technical advertised names and controller identification stay in Bluetooth settings. Existing saved Bluetooth names are not reused as the widget heading.
+The heading defaults to **AC Infinity**. In Bluetooth settings, **Name on widget** offers suggestions (CLOUDLINE T4/T6/T8/T10/T12, Intake fan, Exhaust fan, Grow tent, and Workshop fan) and accepts any custom name, saved separately for each controller on this PC. Blank restores the default. Technical advertised names and controller identification stay in Bluetooth settings. Existing saved Bluetooth names are not reused as the widget heading.
 
-Click the device name to choose a controller or manage Bluetooth. The header shows the last successful read and connection status. A compact On/Off toggle and speed slider sit directly below the readings in every view. The thumb follows reported output when idle; dragging selects a target and releasing applies it without confirmation. The colored fill and number always represent the latest reported output, independently of the target. Stored programs are available from the three-dot button in Device status. The widget view and chart range are remembered across launches.
+Click the device name to choose a controller or manage Bluetooth. The header shows the last successful read and connection status. A single fan card below the readings places current speed above its On/Off toggle and slider in every view. The thumb follows reported output when idle; dragging selects a target and releasing applies it without confirmation. The colored fill and number always represent the latest reported output, independently of the target. Stored programs are available from the three-dot button in Device status. The widget view and chart range are remembered across launches.
 
 History is collected by this PC while connected, retained for up to 24 hours / 6,000 samples per controller, and saved about once per minute and on exit under `%LOCALAPPDATA%\ACInfinityDesktop\history`. It does not download earlier readings from the device or cloud. Two readings are needed to draw a chart. Stored history remains visible while disconnected; live numbers clear so old readings are not presented as current. No AI score or independent port status is synthesized for Controller 67.
 
@@ -39,12 +39,12 @@ History is collected by this PC while connected, retained for up to 24 hours / 6
 
 Only one normal instance runs per Windows session, even when launched from different folders. Opening the EXE again restores the existing window from the tray instead of creating another connection. Older versions still block duplicates but cannot respond to the new restore signal; quit them from the tray before upgrading.
 
-Bluetooth, appearance, stored programs, and connection help each have their own WPF Window, XAML, and code-behind. They size vertically to their content and dock to the main widget, following it as it moves or changes view. Docking chooses a side, above, or below within the current monitor’s work area; if neither window can fit together, the panel is clamped on-screen. Close with × or Escape; minimizing to the tray hides them. Opening a different panel hides the previous one. Opening settings does not stretch or scroll the main widget.
+Bluetooth, appearance, the custom color picker, stored programs, and connection help each have their own WPF Window, XAML, and code-behind. They size vertically to their content and dock to the main widget, following it as it moves or changes view. Docking chooses a side, above, or below within the current monitor’s work area; if neither window can fit together, the panel is clamped on-screen. Close with × or Escape; minimizing to the tray hides them. Opening a different panel hides the previous one. Opening settings does not stretch or scroll the main widget.
 
 ## Widget controls
 
 - The **pushpin** toggles always on top for the widget and its panels; its angle indicates the pin state.
-- **⚙** opens saved preferences: automatic connection, full RGB color pickers for the panel and accent, and panel opacity. Color buttons show a swatch and hex value. **Restore appearance defaults** resets colors and opacity without changing connection or pin settings.
+- **⚙** opens saved preferences: automatic connection, Celsius/Fahrenheit, panel and accent preset dropdowns with color swatches, custom colors, and opacity. Custom color opens a matching picker with a saturation/brightness area, hue slider, preview swatch, and six-digit hex entry. Arrow keys work in the color area; Use color saves, while Cancel or Escape keeps the previous color. Both temperature switches update the display and chart together without writing controller settings. **Restore appearance defaults** resets colors and opacity without changing connection or pin settings.
 - **−** hides to the system tray. Double-click the tray icon or choose Show controller to restore.
 - **×** quits and releases Bluetooth. The tray menu also has Quit.
 - Drag any noninteractive panel area to move the widget, including when pinned. Controls retain their normal mouse behavior.
@@ -53,28 +53,28 @@ Connection, temperature unit, pin state, appearance, and position are saved loca
 
 ## UI Maker / development
 
-Open `ACInfinityDesktop.code-workspace` in VS Code (or open this project folder directly) to load the included UI Maker single-file/self-contained release settings. Select `ACInfinityDesktop.csproj` in UI Maker. Edit each form separately in its WPF designer: `MainWindow.xaml`, `BluetoothWindow.xaml`, `AppearanceWindow.xaml`, `ProgramsWindow.xaml`, and `HelpWindow.xaml`. `SensorChartView.xaml` is the reusable chart view. Shared colors and control styles live in `Theme.xaml`, including UI Maker’s `UimToggleSwitch` and `UimModernSlider` templates. These style standard WPF CheckBox and Slider controls and remain editable in UI Maker. All windows are explicitly included in the project and have their own `.xaml.cs` code-behind. Development requires the .NET 10 SDK.
+Open `ACInfinityDesktop.code-workspace` in VS Code (or open this project folder directly) to load the included UI Maker single-file/self-contained release settings. Select `ACInfinityDesktop.csproj` in UI Maker. Edit each form separately in its WPF designer: `MainWindow.xaml`, `BluetoothWindow.xaml`, `AppearanceWindow.xaml`, `ProgramsWindow.xaml`, `HelpWindow.xaml`, and `ColorPickerWindow.xaml`. `SensorChartView.xaml` is the reusable chart view. Shared colors and control styles live in `Theme.xaml`, including UI Maker’s `UimToggleSwitch` and `UimModernSlider` templates. These style standard WPF CheckBox and Slider controls and remain editable in UI Maker. All windows are explicitly included in the project and have their own `.xaml.cs` code-behind. Development requires the .NET 10 SDK.
 
 ```powershell
 dotnet build ACInfinityDesktop.csproj -c Release
 ./publish.ps1
 ```
 
-The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.6.3`. WPF trimming is disabled. Windows Forms provides the tray icon, color picker, and monitor work-area lookup.
+The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.6.4`. WPF trimming is disabled. Windows Forms provides the tray icon and monitor work-area lookup; the custom color picker is WPF.
 
 If UI Maker reports NETSDK1176, its command has forced `--self-contained false`. Compression now turns off automatically for that mode, but the resulting executable requires the .NET Desktop Runtime. For the standalone release, use the included workspace settings or `./publish.ps1`. A parent workspace selecting this folder through UI Maker does not load this folder's `.vscode/settings.json`; open the supplied `.code-workspace` file to use the project settings.
 
 ## Verification
 
-The release passes 65 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preferences, reconnect behavior, single-instance activation, device eligibility, history, docking placement, and adaptive polling transitions. Offline window checks exercise release-only slider submission, telemetry during editing, duplicate/unchanged releases, pin/unpin, a connection panel following the widget, appearance changes, and tray hide/restore before rendering a screenshot. The main widget is 450 logical pixels wide and sizes vertically to its selected view.
+The release passes 74 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preferences, reconnect behavior, single-instance activation, device eligibility, history, docking placement, adaptive polling transitions, RGB/HSV conversion, and hex validation. Offline window checks exercise color/name preset selection, custom naming, custom-color acceptance, C/F synchronization, release-only slider submission, telemetry during editing, duplicate/unchanged releases, pin/unpin, a connection panel following the widget, appearance changes, and tray hide/restore before rendering a screenshot. The main widget is 450 logical pixels wide and sizes vertically to its selected view.
 
 ```powershell
-& ./Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
-& ./Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
-& ./Releases/dotnet-0.6.3/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
+& ./Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
+& ./Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
+& ./Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
 ```
 
-Add `--bluetooth` to smoke mode to render the Bluetooth window; `--settings` renders the appearance window.
+Add `--bluetooth` to smoke mode to render the Bluetooth window; `--settings` renders the appearance window, and `--picker` renders the modern custom color picker.
 
 For layout previews, `--smoke --readings`, `--smoke --chart`, and `--smoke --controls` render those views. Add `--demo` only to generate explicitly labeled simulated readings for visual checks; normal app launches never use this data.
 
@@ -90,7 +90,9 @@ Fan controls support Controller 67-compatible verified responses. Other advertis
 
 - `MainWindow.xaml` and code-behind: main widget and controller coordination
 - `BluetoothWindow.xaml`, `AppearanceWindow.xaml`, `ProgramsWindow.xaml`, `HelpWindow.xaml`: separate editable forms
-- `Theme.xaml`: shared designer-visible styles
+- `Theme.xaml`: shared designer-visible control styles and color-swatch templates
+- `ColorPickerWindow.xaml` / code-behind: custom HSV and hex picker
+- `Native/ColorChoices.cs`: preset colors, suggested fan names, and color conversion
 - `Native/PanelDocking.cs`: monitor-aware placement for attached forms
 - `Native/SpeedPolling.cs`: fresh-sample settling and adaptive refresh timing
 - `SensorChartView.xaml` / code-behind: local sensor plots
@@ -102,4 +104,4 @@ Fan controls support Controller 67-compatible verified responses. Other advertis
 - `Properties/PublishProfiles/SingleExe.pubxml`: release profile
 - `vendor/`: retained upstream protocol license notices
 
-The local Git repository tracks the native project, artwork, and documentation. Generated binaries, caches, diagnostic captures, and device addresses are excluded. Obsolete Electron/Python prototypes and superseded releases have been removed from the working folder. Local protocol findings and current verification captures remain under diagnostics; the current executable is under Releases/dotnet-0.6.3. No remote is configured and nothing is published. Before publishing externally, choose a license for the new application code and retain the included third-party notices. Report issues with Windows version, controller model, and reproduction steps; redact Bluetooth addresses and personal diagnostic data.
+The local Git repository tracks the native project, artwork, and documentation. Generated binaries, caches, diagnostic captures, and device addresses are excluded. Obsolete Electron/Python prototypes and superseded releases have been removed from the working folder. Local protocol findings and current verification captures remain under diagnostics; the current executable is under Releases/dotnet-0.6.4. No remote is configured and nothing is published. Before publishing externally, choose a license for the new application code and retain the included third-party notices. Report issues with Windows version, controller model, and reproduction steps; redact Bluetooth addresses and personal diagnostic data.

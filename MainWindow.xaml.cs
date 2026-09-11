@@ -17,6 +17,8 @@ namespace ACInfinityDesktop;
 public partial class MainWindow : Window
 {
     private readonly AppearanceWindow appearanceWindow=new();
+    private readonly ColorPickerWindow colorPicker=new();
+    private bool syncingAppearance,editingAccent;
     private readonly BluetoothWindow bluetoothWindow=new();
     private readonly ProgramsWindow programsWindow=new();
     private readonly HelpWindow helpWindow=new();
@@ -28,7 +30,7 @@ public partial class MainWindow : Window
     private bool loadingDisplayName;
     private readonly List<int> smokeSpeedCommands=new();
     private string historyAddress="";
-    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow};
+    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow,colorPicker};
     private TextBox AddressBox=>bluetoothWindow.AddressBox;
     private ListBox DevicesList=>bluetoothWindow.DevicesList;
     private Button ScanButton=>bluetoothWindow.ScanButton;
@@ -65,7 +67,13 @@ public partial class MainWindow : Window
         appearanceWindow.PanelColorButton.Click+=(_,_)=>PickColor(false);
         appearanceWindow.AccentColorButton.Click+=(_,_)=>PickColor(true);
         appearanceWindow.DefaultsButton.Click+=RestoreAppearance;
-        bluetoothWindow.DisplayNameBox.TextChanged+=DisplayName_Changed;
+        bluetoothWindow.DisplayNameBox.ItemsSource=ColorChoices.FanNames;
+        bluetoothWindow.DisplayNameBox.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent,new TextChangedEventHandler(DisplayName_Changed));
+        appearanceWindow.PanelPresetBox.ItemsSource=ColorChoices.Panels;appearanceWindow.AccentPresetBox.ItemsSource=ColorChoices.Accents;
+        appearanceWindow.PanelPresetBox.SelectionChanged+=(_,_)=>PresetSelected(false);
+        appearanceWindow.AccentPresetBox.SelectionChanged+=(_,_)=>PresetSelected(true);
+        appearanceWindow.FahrenheitBox.Click+=(_,_)=>{fahrenheit=appearanceWindow.FahrenheitBox.IsChecked==true;SavePreferences();UpdateView();};
+        colorPicker.Finished+=color=>{if(color.HasValue){string hex=$"#{color.Value.R:X2}{color.Value.G:X2}{color.Value.B:X2}";if(editingAccent)prefs.Accent=hex;else prefs.PanelColor=hex;SavePreferences();}ApplyAppearance();TogglePanel(appearanceWindow);};
         bluetoothWindow.ConnectionStatusText.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding("Text"){Source=StatusText});
         prefs=smoke?new():Preferences.Read(preferences);
         AddressBox.Text="";fahrenheit=prefs.unit=="F";
@@ -98,6 +106,11 @@ public partial class MainWindow : Window
             Pin_Click(this,new RoutedEventArgs());if(!Topmost)throw new InvalidOperationException("Pin failed");
             Pin_Click(this,new RoutedEventArgs());if(Topmost)throw new InvalidOperationException("Unpin failed");
             Connection_Click(this,new RoutedEventArgs());if(!bluetoothWindow.IsVisible)throw new InvalidOperationException("Connection panel failed");
+            prefs.address="AA:BB:CC:DD:EE:FF";UpdateDeviceIdentity();bluetoothWindow.DisplayNameBox.SelectedIndex=1;
+            if(prefs.DisplayName()!="CLOUDLINE T6")throw new InvalidOperationException("Suggested name failed");
+            bluetoothWindow.DisplayNameBox.Text="Office fan";
+            if(prefs.DisplayName()!="Office fan")throw new InvalidOperationException("Custom name failed");
+            prefs.address="";prefs.DisplayNames.Clear();UpdateDeviceIdentity();
             double oldLeft=Left,oldPanelLeft=bluetoothWindow.Left;Left+=20;
             if(Math.Abs(bluetoothWindow.Left-oldPanelLeft)<.1)throw new InvalidOperationException("Docked window did not follow");
             Left=oldLeft;
@@ -105,7 +118,20 @@ public partial class MainWindow : Window
             prefs.PanelColor="#164E63";prefs.Accent="#F0ABFC";OpacitySlider.Value=65;
             if(((SolidColorBrush)Shell.Background).Color.A!=(byte)(255*65/100)||prefs.PanelColor!="#164E63"||prefs.Accent!="#F0ABFC"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
             RestoreAppearance(this,new RoutedEventArgs());
+            appearanceWindow.PanelPresetBox.SelectedIndex=2;
+            if(prefs.PanelColor!="#1C302C")throw new InvalidOperationException("Panel preset failed");
+            appearanceWindow.AccentPresetBox.SelectedIndex=1;
+            if(prefs.Accent!="#A855F7")throw new InvalidOperationException("Accent preset failed");
+            appearanceWindow.FahrenheitBox.IsChecked=true;appearanceWindow.FahrenheitBox.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if(!fahrenheit||UnitButton.Content.ToString()!="°F")throw new InvalidOperationException("Settings temperature switch failed");
+            Unit_Click(this,new RoutedEventArgs());if(appearanceWindow.FahrenheitBox.IsChecked==true)throw new InvalidOperationException("Temperature controls are out of sync");
+            PickColor(true);colorPicker.HexBox.Text="invalid";
+            if(colorPicker.UseButton.IsEnabled)throw new InvalidOperationException("Invalid hex accepted");
+            colorPicker.HexBox.Text="#12AB34";colorPicker.UseButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if(prefs.Accent!="#12AB34"||!appearanceWindow.IsVisible)throw new InvalidOperationException("Custom color failed");
+            RestoreAppearance(this,new RoutedEventArgs());ClosePopups();
             Tray_Click(this,new RoutedEventArgs());if(IsVisible)throw new InvalidOperationException("Tray hide failed");ShowWindow();
+            if(Environment.GetCommandLineArgs().Contains("--picker"))PickColor(true);
             if(Environment.GetCommandLineArgs().Contains("--settings"))Settings_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--bluetooth"))
             {
@@ -122,7 +148,7 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--demo"))
             {
                 var now=DateTimeOffset.Now;for(int i=0;i<1440;i++)history.Add(new SensorSample(now.AddHours(-6).AddSeconds(i*15),23+Math.Sin(i/150d),48+Math.Cos(i/170d)*3));
-                DeviceNameText.Text="Example fan";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;SpeedSlider.Tag=6d;SpeedValue.Text="6 / 10";StatusText.Text="Preview · simulated readings";UpdateCharts();
+                DeviceNameText.Text="Example fan";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;SpeedSlider.Tag=6d;StatusText.Text="Preview · simulated readings";UpdateCharts();
             }
             if(AddressBox.Text.Length!=0)throw new InvalidOperationException("Address field must start blank");
             UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
@@ -141,7 +167,7 @@ public partial class MainWindow : Window
     public async Task QuitAsync()
     {
         if(quitting)return;ClosePopups();SavePreferences();quitting=true;timer.Stop();
-        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=true;
+        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=colorPicker.AllowClose=true;
         SaveHistory();
         foreach(var panel in Panels)panel.Close();
         await controller.DisconnectAsync();
@@ -202,7 +228,7 @@ public partial class MainWindow : Window
     private void DisplayName_Changed(object sender,TextChangedEventArgs e)
     {
         if(loadingDisplayName||!initialized)return;
-        prefs.Rename(bluetoothWindow.DisplayNameBox.Text);DeviceNameText.Text=prefs.DisplayName();DeviceNameText.ToolTip=DeviceNameText.Text;SavePreferences();
+        prefs.Rename(e.OriginalSource is TextBox entry?entry.Text:bluetoothWindow.DisplayNameBox.Text);DeviceNameText.Text=prefs.DisplayName();DeviceNameText.ToolTip=DeviceNameText.Text;SavePreferences();
     }
     private async Task ConnectTargetAsync(DiscoveredController target)
     {
@@ -299,7 +325,7 @@ public partial class MainWindow : Window
         UpdateCharts();
         speedPolling.Observe(s.Output,s.Updated,DateTimeOffset.Now,live);timer.Interval=speedPolling.Interval;
         ConnectionBadge.Text=live?"● Connected":"● Offline";ConnectionBadge.Foreground=live?Brushes.LightGreen:Brushes.LightSlateGray;
-        UnitButton.Content=fahrenheit?"°F":"°C";
+        UnitButton.Content=fahrenheit?"°F":"°C";appearanceWindow.FahrenheitBox.IsChecked=fahrenheit;appearanceWindow.FahrenheitBox.Content=fahrenheit?"Fahrenheit (°F)":"Celsius (°C)";
         TemperatureText.Text=live&&s.TemperatureC is double t?(fahrenheit?t*1.8+32:t).ToString("0.0"):"—";
         HumidityText.Text=live&&s.Humidity is double h?h.ToString("0.0"):"—";
         VpdText.Text=live&&s.TemperatureC is double c&&s.Humidity is double rh?(0.6108*Math.Exp(17.27*c/(c+237.3))*(1-rh/100)).ToString("0.00"):"—";
@@ -307,7 +333,6 @@ public partial class MainWindow : Window
         UpdateFanAnimation(live?s.Output:null);
         OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName+(speedPolling.Target.HasValue?$" · {s.Output} → {speedPolling.Target}":""):"Not connected";
         UpdatedText.Text=live?$"Last updated {s.Updated:HH:mm:ss}":"No live readings";
-        SpeedValue.Text=live&&s.Output.HasValue?$"{s.Output} / 10":"—";
         SpeedSlider.Tag=(double)(live?s.Output??0:0);
         if(!editingSpeed&&!submittingSpeed)SpeedSlider.Value=live?s.Output??0:0;
         if(!editingSpeed)PresetText.Text=!live?"Release slider to set speed. Zero selects saved Off mode.":
@@ -324,7 +349,7 @@ public partial class MainWindow : Window
     private void ApplyWidgetView()
     {
         if(prefs.WidgetView is not ("Readings" or "Status" or "Chart"))prefs.WidgetView="Status";
-        DeviceStatusPanel.Visibility=prefs.WidgetView=="Status"?Visibility.Visible:Visibility.Collapsed;
+        DeviceStatusPanel.Visibility=Visibility.Visible;ModeText.Visibility=prefs.WidgetView=="Readings"?Visibility.Collapsed:Visibility.Visible;
         ChartPanel.Visibility=prefs.WidgetView=="Chart"?Visibility.Visible:Visibility.Collapsed;
         foreach(var button in new[]{ReadingsTab,StatusTab,ChartTab})
         {button.Background=(string)button.Tag==prefs.WidgetView?(Brush)Resources["HeaderBrush"]:Brushes.Transparent;button.BorderBrush=(string)button.Tag==prefs.WidgetView?(Brush)Resources["AccentBrush"]:Brushes.Transparent;}
@@ -410,19 +435,19 @@ public partial class MainWindow : Window
     private static Color ParseColor(string? value,Color fallback)
     {try{return (Color)ColorConverter.ConvertFromString(value??"");}catch{return fallback;}}
     private Color PanelColor()=>ParseColor(prefs.PanelColor,prefs.Theme=="Slate"?Color.FromRgb(48,61,80):prefs.Theme=="Forest"?Color.FromRgb(28,48,44):Color.FromRgb(23,26,32));
-    private sealed class ColorDialogOwner : Forms.IWin32Window
+    private void PresetSelected(bool accent)
     {
-        public IntPtr Handle {get;}
-        public ColorDialogOwner(Window window)=>Handle=new System.Windows.Interop.WindowInteropHelper(window).Handle;
+        if(syncingAppearance||!initialized)return;
+        var choice=(accent?appearanceWindow.AccentPresetBox:appearanceWindow.PanelPresetBox).SelectedItem as ColorChoice;
+        if(choice==null)return;
+        if(choice.Name=="Custom"){PickColor(accent);return;}
+        if(accent)prefs.Accent=choice.Hex;else prefs.PanelColor=choice.Hex;ApplyAppearance();SavePreferences();
     }
     private void PickColor(bool accent)
     {
-        var current=accent?ParseColor(prefs.Accent,Color.FromRgb(145,199,242)):PanelColor();
-        using var picker=new Forms.ColorDialog{FullOpen=true,AnyColor=true,Color=System.Drawing.Color.FromArgb(current.R,current.G,current.B)};
-        if(picker.ShowDialog(new ColorDialogOwner(appearanceWindow))!=Forms.DialogResult.OK)return;
-        string hex=$"#{picker.Color.R:X2}{picker.Color.G:X2}{picker.Color.B:X2}";
-        if(accent)prefs.Accent=hex;else prefs.PanelColor=hex;
-        ApplyAppearance();SavePreferences();
+        editingAccent=accent;
+        colorPicker.Configure(accent?ParseColor(prefs.Accent,Color.FromRgb(145,199,242)):PanelColor(),accent?"Custom accent color":"Custom panel color");
+        TogglePanel(colorPicker);
     }
     private void RestoreAppearance(object sender,RoutedEventArgs e)
     {
@@ -440,8 +465,12 @@ public partial class MainWindow : Window
         Resources["TextBrush"]=new SolidColorBrush(light?Color.FromRgb(20,30,40):Color.FromRgb(238,243,248));
         Resources["MutedBrush"]=new SolidColorBrush(light?Color.FromRgb(50,65,80):Color.FromRgb(175,193,215));
         appearanceWindow.PanelSwatch.Background=new SolidColorBrush(panel);appearanceWindow.AccentSwatch.Background=new SolidColorBrush(accent);
-        appearanceWindow.PanelColorText.Text=$"Panel color  #{panel.R:X2}{panel.G:X2}{panel.B:X2}";
-        appearanceWindow.AccentColorText.Text=$"Accent color  #{accent.R:X2}{accent.G:X2}{accent.B:X2}";
+        appearanceWindow.PanelColorText.Text=$"Custom color  #{panel.R:X2}{panel.G:X2}{panel.B:X2}";
+        appearanceWindow.AccentColorText.Text=$"Custom color  #{accent.R:X2}{accent.G:X2}{accent.B:X2}";
+        syncingAppearance=true;
+        appearanceWindow.PanelPresetBox.SelectedItem=ColorChoices.Panels.FirstOrDefault(c=>c.Hex.Equals($"#{panel.R:X2}{panel.G:X2}{panel.B:X2}",StringComparison.OrdinalIgnoreCase))??ColorChoices.Panels.Last();
+        appearanceWindow.AccentPresetBox.SelectedItem=ColorChoices.Accents.FirstOrDefault(c=>c.Hex.Equals($"#{accent.R:X2}{accent.G:X2}{accent.B:X2}",StringComparison.OrdinalIgnoreCase))??ColorChoices.Accents.Last();
+        syncingAppearance=false;
         PinTilt.Angle=Topmost?0:45;PinButton.ToolTip=Topmost?"Unpin from top":"Pin on top";
         PinButton.Foreground=Topmost?(Brush)Resources["AccentBrush"]:Brushes.LightSteelBlue;
         if(initialized)ApplyWidgetView();

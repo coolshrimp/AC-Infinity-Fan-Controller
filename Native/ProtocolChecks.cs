@@ -90,6 +90,14 @@ internal static class ProtocolChecks
         polling.Observe(7,clock.AddSeconds(38),clock.AddSeconds(38),true);Check(!polling.Fast); // Settled short of requested output.
         polling.Request(10,clock.AddSeconds(40));polling.Observe(null,clock.AddSeconds(132),clock.AddSeconds(132),true);Check(!polling.Fast);
         polling.Request(10,clock.AddSeconds(140));polling.Observe(null,clock.AddSeconds(142),clock.AddSeconds(142),false);Check(!polling.Fast&&polling.Target==null);
+        Check(ColorChoices.Hsv(0,1,1)==System.Windows.Media.Colors.Red);
+        Check(ColorChoices.Hsv(120,1,1)==System.Windows.Media.Colors.Lime);
+        Check(ColorChoices.Hsv(240,1,1)==System.Windows.Media.Colors.Blue);
+        Check(ColorChoices.Hsv(300,0,1)==System.Windows.Media.Colors.White);
+        Check(ColorChoices.Hsv(300,1,0)==System.Windows.Media.Colors.Black);
+        Check(ColorChoices.TryHex("#91C7F2",out var sky)&&sky==System.Windows.Media.Color.FromRgb(145,199,242));
+        Check(!ColorChoices.TryHex("#GG7788",out _));Check(!ColorChoices.TryHex("#12345",out _));
+        var hsv=ColorChoices.ToHsv(sky);Check(ColorChoices.Hsv(hsv.H,hsv.S,hsv.V)==sky);
         return new {passed,framework="native .NET",hardwareWrites=false};
     }
 }

@@ -4,7 +4,7 @@
    <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Bluetooth"/><TextBlock Text="Bluetooth" FontSize="18" VerticalAlignment="Center"/></DockPanel>
   <StackPanel x:Name="ConnectionPanel">
   <TextBlock Text="Name on widget" Style="{StaticResource Caption}"/>
-  <TextBox x:Name="DisplayNameBox" MaxLength="40" ToolTip="Your name for this fan, such as CLOUDLINE T6. Saved only on this PC."/>
+  <ComboBox x:Name="DisplayNameBox" Style="{StaticResource ModernCombo}" IsEditable="True" IsTextSearchEnabled="False" ToolTip="Choose a suggested name or type your own. Saved only on this PC."/>
   <TextBlock Text="Choose a controller first, then give it a name. Leave blank for AC Infinity. The attached fan model is not available from the current Bluetooth readings." TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,10"/>
   <TextBlock x:Name="BluetoothNameText" Text="Bluetooth name: no controller selected" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
   <TextBlock x:Name="ControllerModelText" Text="Controller: not identified" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0"/>

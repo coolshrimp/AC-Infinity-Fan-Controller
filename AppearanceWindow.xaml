@@ -5,9 +5,12 @@
   <Border x:Name="SettingsPanel" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="14"><StackPanel>
    <TextBlock Text="Appearance &amp; preferences" FontSize="15" Margin="0,0,0,12"/>
    <CheckBox x:Name="AutoConnectBox" Style="{StaticResource UimToggleSwitch}" Background="{DynamicResource AccentBrush}" BorderBrush="#46515F" ToolTip="Remember the last controller and reconnect automatically" Content="Connect automatically and retry if disconnected" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,12"/>
+   <CheckBox x:Name="FahrenheitBox" Style="{StaticResource UimToggleSwitch}" Background="{DynamicResource AccentBrush}" BorderBrush="#46515F" Foreground="{DynamicResource TextBrush}" Content="Celsius (°C)" ToolTip="Switch displayed temperatures between Celsius and Fahrenheit; controller settings are unchanged." Margin="0,0,0,12"/>
    <TextBlock Text="Panel style" Style="{StaticResource Caption}"/>
+   <ComboBox x:Name="PanelPresetBox" Style="{StaticResource ModernCombo}" ItemTemplate="{StaticResource ColorChoiceTemplate}" ToolTip="Choose a panel color preset, or use Custom color below."/>
    <Button x:Name="PanelColorButton" ToolTip="Choose any panel color" HorizontalContentAlignment="Stretch"><StackPanel Orientation="Horizontal"><Border x:Name="PanelSwatch" Width="22" Height="22" CornerRadius="4" BorderBrush="#8899AA" BorderThickness="1" Margin="0,0,12,0"/><TextBlock x:Name="PanelColorText" Foreground="#E2EEFC" Text="Choose panel color" VerticalAlignment="Center"/></StackPanel></Button>
    <TextBlock Text="Accent color" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
+   <ComboBox x:Name="AccentPresetBox" Style="{StaticResource ModernCombo}" ItemTemplate="{StaticResource ColorChoiceTemplate}" ToolTip="Choose an accent color preset, or use Custom color below."/>
    <Button x:Name="AccentColorButton" ToolTip="Choose any accent color"><StackPanel Orientation="Horizontal"><Border x:Name="AccentSwatch" Width="22" Height="22" CornerRadius="4" BorderBrush="#8899AA" BorderThickness="1" Margin="0,0,12,0"/><TextBlock x:Name="AccentColorText" Foreground="#E2EEFC" Text="Choose accent color" VerticalAlignment="Center"/></StackPanel></Button>
    <TextBlock Text="Panel opacity · subtle glass to solid" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
    <Slider x:Name="OpacitySlider" Style="{StaticResource UimModernSlider}" Foreground="{DynamicResource AccentBrush}" Background="#46515F" ToolTip="Adjust panel background opacity; text stays readable" Minimum="45" Maximum="100" Value="94"/>

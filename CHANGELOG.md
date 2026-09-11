@@ -1,5 +1,14 @@
 # Changes
 
+## 0.6.4
+
+- Panel and accent preset dropdowns with swatches, alongside unrestricted custom colors.
+- Matching WPF color-picker form with saturation/brightness area, hue slider, preview, validated hex entry, and cancel/apply behavior.
+- Editable fan-name dropdown with common CLOUDLINE sizes and room/use suggestions.
+- Celsius/Fahrenheit toggle in settings, synchronized with the main temperature button and charts.
+- Sensor hover explanations, including VPD meaning and how it is calculated.
+- Current fan speed and mode above the controls in one compact card.
+
 ## 0.6.3
 
 - Friendly AC Infinity heading replaces technical Bluetooth advertisement names on the widget.
