@@ -1,5 +1,11 @@
 # Changes
 
+## 0.4.1
+
+- Preserved the updated user layout, removed its extra outer frame, and aligned header and footer controls.
+- Content-sized main window and shared background opacity prevent clipping and opaque layering.
+- Vector pushpin with pinned/unpinned state and hover tooltips for controls.
+
 ## 0.4.0
 
 - Doubled fan rotation at every nonzero speed.

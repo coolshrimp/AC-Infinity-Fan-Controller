@@ -4,13 +4,13 @@
    <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Appearance"/><TextBlock Text="Appearance" FontSize="18" VerticalAlignment="Center"/></DockPanel>
   <Border x:Name="SettingsPanel" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="14"><StackPanel>
    <TextBlock Text="Appearance &amp; preferences" FontSize="15" Margin="0,0,0,12"/>
-   <CheckBox x:Name="AutoConnectBox" Content="Connect automatically and retry if disconnected" Foreground="#D4E5F8" Margin="0,0,0,12"/>
+   <CheckBox x:Name="AutoConnectBox" ToolTip="Remember the last controller and reconnect automatically" Content="Connect automatically and retry if disconnected" Foreground="#D4E5F8" Margin="0,0,0,12"/>
    <TextBlock Text="Panel style" Style="{StaticResource Caption}"/>
-   <ComboBox x:Name="ThemeBox" SelectedIndex="0"><ComboBoxItem Content="Midnight"/><ComboBoxItem Content="Slate"/><ComboBoxItem Content="Forest"/></ComboBox>
+   <ComboBox x:Name="ThemeBox" ToolTip="Choose the panel background colors" SelectedIndex="0"><ComboBoxItem Content="Midnight"/><ComboBoxItem Content="Slate"/><ComboBoxItem Content="Forest"/></ComboBox>
    <TextBlock Text="Accent color" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
-   <ComboBox x:Name="AccentBox" SelectedIndex="0"><ComboBoxItem Content="Sky blue" Tag="#91C7F2"/><ComboBoxItem Content="Mint" Tag="#81E1B7"/><ComboBoxItem Content="Lavender" Tag="#BDA6FF"/><ComboBoxItem Content="Amber" Tag="#FFD28A"/><ComboBoxItem Content="Rose" Tag="#FFA6BF"/></ComboBox>
+   <ComboBox x:Name="AccentBox" ToolTip="Choose the accent and border color" SelectedIndex="0"><ComboBoxItem Content="Sky blue" Tag="#91C7F2"/><ComboBoxItem Content="Mint" Tag="#81E1B7"/><ComboBoxItem Content="Lavender" Tag="#BDA6FF"/><ComboBoxItem Content="Amber" Tag="#FFD28A"/><ComboBoxItem Content="Rose" Tag="#FFA6BF"/></ComboBox>
    <TextBlock Text="Panel opacity · subtle glass to solid" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
-   <Slider x:Name="OpacitySlider" Minimum="45" Maximum="100" Value="94"/>
+   <Slider x:Name="OpacitySlider" ToolTip="Adjust panel background opacity; text stays readable" Minimum="45" Maximum="100" Value="94"/>
    <TextBlock Text="Preferences save automatically on this PC." FontSize="10" Foreground="#96A6B9" Margin="0,8,0,0"/>
   </StackPanel></Border>
 

@@ -3,12 +3,12 @@
 <Border x:Name="PanelShell" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI">
    <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Bluetooth"/><TextBlock Text="Bluetooth" FontSize="18" VerticalAlignment="Center"/></DockPanel>
   <StackPanel x:Name="ConnectionPanel">
-  <DockPanel Margin="0,16,0,8"><Button x:Name="ScanButton" Content="Scan Bluetooth" DockPanel.Dock="Right"/><Button x:Name="DisconnectButton" Content="Disconnect" DockPanel.Dock="Right" Visibility="Collapsed"/><TextBlock Text="Nearby controllers" FontSize="13" VerticalAlignment="Center"/></DockPanel>
+  <DockPanel Margin="0,16,0,8"><Button x:Name="ScanButton" ToolTip="Find nearby Bluetooth controllers" Content="Scan Bluetooth" DockPanel.Dock="Right"/><Button x:Name="DisconnectButton" ToolTip="Disconnect and pause automatic reconnection" Content="Disconnect" DockPanel.Dock="Right" Visibility="Collapsed"/><TextBlock Text="Nearby controllers" FontSize="13" VerticalAlignment="Center"/></DockPanel>
   <TextBlock Text="Controller 67 address (optional)" Style="{StaticResource Caption}"/>
   <TextBox x:Name="AddressBox" MaxLength="17" FontFamily="Consolas" ToolTip="Enter the Bluetooth MAC, or leave empty to discover Controller 67 devices."/>
-  <ListBox x:Name="DevicesList" DisplayMemberPath="Display" Background="{DynamicResource CardBrush}" Foreground="#D4E5F8" BorderBrush="#303846" MaxHeight="100" Margin="0,8,0,0" Visibility="Collapsed"/>
-  <Button x:Name="ConnectButton" Content="Connect selected controller" Visibility="Collapsed" IsEnabled="False"/>
-  <Button x:Name="WindowsBluetoothButton" Content="Open Windows Bluetooth settings ↗" HorizontalAlignment="Left" Padding="8,4"/>
+  <ListBox x:Name="DevicesList" ToolTip="Select the controller to connect to" DisplayMemberPath="Display" Background="{DynamicResource CardBrush}" Foreground="#D4E5F8" BorderBrush="#303846" MaxHeight="100" Margin="0,8,0,0" Visibility="Collapsed"/>
+  <Button x:Name="ConnectButton" ToolTip="Connect to the selected controller" Content="Connect selected controller" Visibility="Collapsed" IsEnabled="False"/>
+  <Button x:Name="WindowsBluetoothButton" ToolTip="Open Windows Bluetooth settings" Content="Open Windows Bluetooth settings ↗" HorizontalAlignment="Left" Padding="8,4"/>
   </StackPanel>
 <TextBlock x:Name="ConnectionStatusText" Text="Ready to connect." TextWrapping="Wrap" Foreground="#AFC1D7" FontSize="11" Margin="0,12,0,0"/>
    </StackPanel>

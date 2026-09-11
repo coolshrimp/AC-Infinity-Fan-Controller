@@ -70,7 +70,7 @@ public partial class MainWindow : Window
             Connection_Click(this,new RoutedEventArgs());if(!bluetoothWindow.IsVisible)throw new InvalidOperationException("Connection panel failed");
             Connection_Click(this,new RoutedEventArgs());
             ThemeBox.SelectedIndex=2;AccentBox.SelectedIndex=1;OpacitySlider.Value=65;
-            if(prefs.Theme!="Forest"||prefs.Accent!="#81E1B7"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
+            if(((SolidColorBrush)Shell.Background).Color.A!=(byte)(255*65/100)||prefs.Theme!="Forest"||prefs.Accent!="#81E1B7"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
             ThemeBox.SelectedIndex=0;AccentBox.SelectedIndex=0;OpacitySlider.Value=94;
             Tray_Click(this,new RoutedEventArgs());if(IsVisible)throw new InvalidOperationException("Tray hide failed");ShowWindow();
             if(Environment.GetCommandLineArgs().Contains("--settings"))Settings_Click(this,new RoutedEventArgs());
@@ -81,7 +81,8 @@ public partial class MainWindow : Window
             }
             if(Environment.GetCommandLineArgs().Contains("--programs"))Programs_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
-            UpdateLayout();if(ActualWidth!=540||ActualHeight!=740)throw new InvalidOperationException("Popup resized the main widget");return;
+            if(Environment.GetCommandLineArgs().Contains("--transparent"))OpacitySlider.Value=45;
+            UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
         }
         using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/ui/icon.ico")).Stream;
         using var source=new System.Drawing.Icon(stream);
@@ -256,7 +257,7 @@ public partial class MainWindow : Window
         try{Resources["AccentBrush"]=new SolidColorBrush((Color)ColorConverter.ConvertFromString(prefs.Accent));}catch{prefs.Accent="#91C7F2";Resources["AccentBrush"]=new SolidColorBrush(Color.FromRgb(145,199,242));}
         var palette=prefs.Theme=="Slate"?new[]{"#303D50","#233042","#384A61"}:prefs.Theme=="Forest"?new[]{"#1C302C","#12231F","#294239"}:new[]{"#171A20","#11151A","#1D222D"};
         SolidColorBrush Glass(string value){var color=(Color)ColorConverter.ConvertFromString(value);color.A=(byte)(255*Math.Clamp(prefs.Transparency,45,100)/100);return new(color);}
-        Shell.Background=Glass(palette[0]);Resources["CardBrush"]=Glass(palette[1]);Resources["HeaderBrush"]=Glass(palette[2]);
+        Resources["WindowBrush"]=Glass(palette[0]);Resources["CardBrush"]=Glass(palette[1]);Resources["HeaderBrush"]=Glass(palette[2]);
         PinButton.Content=Topmost?"◆":"◇";PinButton.ToolTip=Topmost?"Unpin from top":"Pin on top";
         PinButton.Foreground=Topmost?(Brush)Resources["AccentBrush"]:Brushes.LightSteelBlue;
     }
