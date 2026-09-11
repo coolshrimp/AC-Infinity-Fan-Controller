@@ -4,7 +4,7 @@ A compact Windows Bluetooth widget for AC Infinity **Controller 67 (CTR67A)** an
 
 ## Run
 
-Open `Releases/dotnet-0.3.1/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
+Open `Releases/dotnet-0.3.2/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
 
 Quit an older running copy using its tray menu before opening this version. Close other phone/Mac controller connections so Bluetooth is available.
 
@@ -19,6 +19,8 @@ Quit an older running copy using its tray menu before opening this version. Clos
 - Stored programs show Auto thresholds, timers, cycle durations, and daily schedule. Editing these programs is not implemented.
 
 Only one normal instance runs per Windows session, even when launched from different folders. Opening the EXE again restores the existing window from the tray instead of creating another connection. Older versions still block duplicates but cannot respond to the new restore signal; quit them from the tray before upgrading.
+
+Bluetooth, appearance, stored programs, and connection help open in separate floating popups styled to match the widget. They do not resize or scroll the main panel. Close them with ×, Escape, or a click outside. Only one popup is open at a time, and minimizing to the tray closes it.
 
 ## Widget controls
 
@@ -39,17 +41,19 @@ dotnet build ACInfinityDesktop.csproj -c Release
 ./publish.ps1
 ```
 
-The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.3.1`. WPF trimming is disabled. Windows Forms is used only for the tray icon.
+The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.3.2`. WPF trimming is disabled. Windows Forms is used only for the tray icon.
 
 ## Verification
 
-The release passes 29 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preference migration and round-trip storage, and reconnect delay/pause/reset behavior. Offline window checks exercise pin/unpin, connection panel visibility, appearance changes, and tray hide/restore before rendering a screenshot.
+The release passes 29 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preference migration and round-trip storage, and reconnect delay/pause/reset behavior. Offline window checks exercise pin/unpin, connection panel visibility, appearance changes, and tray hide/restore before rendering a screenshot. Popup checks also verify the main widget stays 540 × 740.
 
 ```powershell
-& ./Releases/dotnet-0.3.1/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
-& ./Releases/dotnet-0.3.1/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
-& ./Releases/dotnet-0.3.1/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
+& ./Releases/dotnet-0.3.2/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
+& ./Releases/dotnet-0.3.2/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
+& ./Releases/dotnet-0.3.2/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
 ```
+
+Add `--bluetooth` to smoke mode to render the Bluetooth popup; `--settings` renders the appearance popup.
 
 Smoke mode uses default in-memory preferences and does not connect to Bluetooth or save settings. Optional `--probe --address <Bluetooth MAC> --output <JSON path>` performs read-only live discovery and three status samples. Close other controller apps before using it.
 

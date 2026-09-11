@@ -43,13 +43,15 @@ public partial class MainWindow : Window
         if(smoke){
             Pin_Click(this,new RoutedEventArgs());if(!Topmost)throw new InvalidOperationException("Pin failed");
             Pin_Click(this,new RoutedEventArgs());if(Topmost)throw new InvalidOperationException("Unpin failed");
-            Connection_Click(this,new RoutedEventArgs());if(ConnectionPanel.Visibility!=Visibility.Visible)throw new InvalidOperationException("Connection panel failed");
+            Connection_Click(this,new RoutedEventArgs());if(!ConnectionPopup.IsOpen)throw new InvalidOperationException("Connection panel failed");
             Connection_Click(this,new RoutedEventArgs());
             ThemeBox.SelectedIndex=2;AccentBox.SelectedIndex=1;OpacitySlider.Value=65;
             if(prefs.Theme!="Forest"||prefs.Accent!="#81E1B7"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
             ThemeBox.SelectedIndex=0;AccentBox.SelectedIndex=0;OpacitySlider.Value=94;
             Tray_Click(this,new RoutedEventArgs());if(IsVisible)throw new InvalidOperationException("Tray hide failed");ShowWindow();
-            if(Environment.GetCommandLineArgs().Contains("--settings"))SettingsPanel.Visibility=Visibility.Visible;return;
+            if(Environment.GetCommandLineArgs().Contains("--settings"))Settings_Click(this,new RoutedEventArgs());
+            if(Environment.GetCommandLineArgs().Contains("--bluetooth"))Connection_Click(this,new RoutedEventArgs());
+            UpdateLayout();if(ActualWidth!=540||ActualHeight!=740)throw new InvalidOperationException("Popup resized the main widget");return;
         }
         using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/ui/icon.ico")).Stream;
         using var source=new System.Drawing.Icon(stream);
@@ -64,7 +66,7 @@ public partial class MainWindow : Window
     private async void Window_Closing(object? sender,CancelEventArgs e){if(!quitting){e.Cancel=true;await QuitAsync();}}
     public async Task QuitAsync()
     {
-        if(quitting)return;SavePreferences();quitting=true;timer.Stop();
+        if(quitting)return;ClosePopups();SavePreferences();quitting=true;timer.Stop();
         await controller.DisconnectAsync();
         if(tray!=null){tray.Visible=false;tray.ContextMenuStrip?.Dispose();tray.Icon?.Dispose();tray.Dispose();}
         Application.Current.Shutdown();
@@ -156,11 +158,27 @@ public partial class MainWindow : Window
     }
     private void Connection_Click(object sender,RoutedEventArgs e)
     {
-        ConnectionPanel.Visibility=ConnectionPanel.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;
+        TogglePopup(ConnectionPopup);
         if(DevicesList.Items.Count>0){DevicesList.Visibility=Visibility.Visible;ConnectButton.Visibility=Visibility.Visible;}
     }
-    private void Settings_Click(object sender,RoutedEventArgs e)=>SettingsPanel.Visibility=SettingsPanel.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;
-    private void Tray_Click(object sender,RoutedEventArgs e){SavePreferences();Hide();}
+    private void Settings_Click(object sender,RoutedEventArgs e)=>TogglePopup(SettingsPopup);
+    private void Programs_Click(object sender,RoutedEventArgs e)=>TogglePopup(ProgramsPopup);
+    private void Help_Click(object sender,RoutedEventArgs e)=>TogglePopup(HelpPopup);
+    private void ClosePopups(){foreach(var popup in new[]{ConnectionPopup,SettingsPopup,ProgramsPopup,HelpPopup})popup.IsOpen=false;}
+    private void TogglePopup(System.Windows.Controls.Primitives.Popup popup)
+    {
+        bool open=!popup.IsOpen;ClosePopups();popup.IsOpen=open;
+    }
+    private void Popup_Close(object sender,RoutedEventArgs e)=>ClosePopups();
+    private void Popup_KeyDown(object sender,System.Windows.Input.KeyEventArgs e)
+    {if(e.Key==System.Windows.Input.Key.Escape){ClosePopups();e.Handled=true;}}
+    private void Popup_Opened(object sender,EventArgs e)
+    {
+        if(sender is System.Windows.Controls.Primitives.Popup popup && popup.Child is FrameworkElement child)
+            child.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+    }
+    internal FrameworkElement SmokeSurface=>SettingsPopup.IsOpen?(FrameworkElement)SettingsPopup.Child:ConnectionPopup.IsOpen?(FrameworkElement)ConnectionPopup.Child:this;
+    private void Tray_Click(object sender,RoutedEventArgs e){ClosePopups();SavePreferences();Hide();}
     private async void Close_Click(object sender,RoutedEventArgs e)=>await QuitAsync();
     private void WindowsBluetooth_Click(object sender,RoutedEventArgs e)
     {try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:bluetooth"){UseShellExecute=true});}catch(Exception ex){StatusText.Text=ex.Message;}}

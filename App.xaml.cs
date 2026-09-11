@@ -56,8 +56,8 @@ public partial class App : Application
         if(smoke)
         {
             await Task.Delay(800);
-            window.UpdateLayout();
-            var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(window);
+            window.UpdateLayout();var surface=window.SmokeSurface;surface.UpdateLayout();
+            var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)surface.ActualWidth,(int)surface.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(surface);
             var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
             using(var output=File.Create(GetOutput(e.Args))) encoder.Save(output);
             await window.QuitAsync();

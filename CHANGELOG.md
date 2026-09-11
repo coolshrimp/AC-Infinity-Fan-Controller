@@ -1,5 +1,11 @@
 # Changes
 
+## 0.3.2
+
+- Bluetooth and appearance settings open as styled floating popups, without expanding the widget.
+- Stored programs and help also use popups; removed the main window scrollbar.
+- Popups close with the close button, Escape, outside click, or minimize to tray.
+
 ## 0.3.1
 
 - Repeated launches restore the existing window, including from the tray, and exit silently.

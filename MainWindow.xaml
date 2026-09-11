@@ -9,7 +9,8 @@
   <Style x:Key="Caption" TargetType="TextBlock"><Setter Property="Foreground" Value="#96A6B9"/><Setter Property="FontSize" Value="10"/><Setter Property="Margin" Value="0,0,0,8"/></Style>
   <Style x:Key="Metric" TargetType="TextBlock"><Setter Property="FontSize" Value="36"/><Setter Property="FontWeight" Value="Light"/></Style>
  </Window.Resources>
- <Border x:Name="Shell" CornerRadius="20" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" Background="#171A20" PreviewMouseLeftButtonDown="Panel_Drag"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20">
+ <Grid>
+ <Border x:Name="Shell" CornerRadius="20" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" Background="#171A20" PreviewMouseLeftButtonDown="Panel_Drag"><StackPanel Margin="20">
   <DockPanel Margin="0,0,0,18">
    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
     <Button x:Name="PinButton" Content="♧" ToolTip="Pin on top" AutomationProperties.Name="Pin on top" Click="Pin_Click" Padding="8,5"/>
@@ -19,17 +20,6 @@
    </StackPanel>
    <StackPanel><TextBlock Text="LOCAL BLUETOOTH" Foreground="{DynamicResource AccentBrush}" FontSize="9"/><TextBlock Text="AC Infinity" FontSize="23" Margin="0,4,0,0"/></StackPanel>
   </DockPanel>
-  <Border x:Name="SettingsPanel" Visibility="Collapsed" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="14" Margin="0,0,0,14"><StackPanel>
-   <TextBlock Text="Appearance &amp; preferences" FontSize="15" Margin="0,0,0,12"/>
-   <CheckBox x:Name="AutoConnectBox" Content="Connect automatically and retry if disconnected" Foreground="#D4E5F8" Click="Appearance_Changed" Margin="0,0,0,12"/>
-   <TextBlock Text="Panel style" Style="{StaticResource Caption}"/>
-   <ComboBox x:Name="ThemeBox" SelectionChanged="Appearance_Changed" SelectedIndex="0"><ComboBoxItem Content="Midnight"/><ComboBoxItem Content="Slate"/><ComboBoxItem Content="Forest"/></ComboBox>
-   <TextBlock Text="Accent color" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
-   <ComboBox x:Name="AccentBox" SelectionChanged="Appearance_Changed" SelectedIndex="0"><ComboBoxItem Content="Sky blue" Tag="#91C7F2"/><ComboBoxItem Content="Mint" Tag="#81E1B7"/><ComboBoxItem Content="Lavender" Tag="#BDA6FF"/><ComboBoxItem Content="Amber" Tag="#FFD28A"/><ComboBoxItem Content="Rose" Tag="#FFA6BF"/></ComboBox>
-   <TextBlock Text="Panel opacity · subtle glass to solid" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
-   <Slider x:Name="OpacitySlider" Minimum="45" Maximum="100" Value="94" ValueChanged="Appearance_Changed"/>
-   <TextBlock Text="Preferences save automatically on this PC." FontSize="10" Foreground="#96A6B9" Margin="0,8,0,0"/>
-  </StackPanel></Border>
   <Border CornerRadius="18" Background="{DynamicResource CardBrush}" BorderBrush="#303846" BorderThickness="1"><StackPanel>
    <Border Background="{DynamicResource HeaderBrush}" CornerRadius="18,18,0,0" Padding="18"><DockPanel>
     <Button DockPanel.Dock="Right" Click="Connection_Click" ToolTip="Bluetooth connection settings" AutomationProperties.Name="Bluetooth connection settings" Padding="7,4" VerticalAlignment="Center"><TextBlock x:Name="ConnectionBadge" Text="● Offline"/></Button>
@@ -48,7 +38,31 @@
    <TextBlock x:Name="PresetText" Text="Manual controls replace the active mode. Off mode uses the stored minimum speed." Foreground="#96A6B9" FontSize="10" TextWrapping="Wrap" Margin="18,0,18,14"/>
    <Border BorderBrush="#303846" BorderThickness="0,1,0,0" Padding="14,8"><DockPanel><Button x:Name="RefreshButton" Content="Refresh" Click="Refresh_Click" DockPanel.Dock="Right" IsEnabled="False" Padding="8,3"/><TextBlock x:Name="UpdatedText" Text="No live readings" Foreground="#96A6B9" VerticalAlignment="Center" FontSize="10"/></DockPanel></Border>
   </StackPanel></Border>
-  <StackPanel x:Name="ConnectionPanel" Visibility="Collapsed">
+  <TextBlock x:Name="StatusText" Text="Close other AC Infinity apps, then scan for your controller." TextWrapping="Wrap" Foreground="#AFC1D7" FontSize="11" Margin="0,10,0,8"/>
+  <StackPanel Orientation="Horizontal"><Button Content="Stored programs" Click="Programs_Click" Padding="10,5"/><Button Content="Connection help" Click="Help_Click" Padding="10,5"/></StackPanel>
+ </StackPanel></Border>
+ <Popup x:Name="SettingsPopup" Placement="Center" PlacementTarget="{Binding ElementName=Shell}" AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade" Opened="Popup_Opened">
+  <Border Width="470" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI" PreviewKeyDown="Popup_KeyDown">
+   <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Tag="SettingsPopup" Click="Popup_Close" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Appearance"/><TextBlock Text="Appearance" FontSize="18" VerticalAlignment="Center"/></DockPanel>
+  <Border x:Name="SettingsPanel" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="14"><StackPanel>
+   <TextBlock Text="Appearance &amp; preferences" FontSize="15" Margin="0,0,0,12"/>
+   <CheckBox x:Name="AutoConnectBox" Content="Connect automatically and retry if disconnected" Foreground="#D4E5F8" Click="Appearance_Changed" Margin="0,0,0,12"/>
+   <TextBlock Text="Panel style" Style="{StaticResource Caption}"/>
+   <ComboBox x:Name="ThemeBox" SelectionChanged="Appearance_Changed" SelectedIndex="0"><ComboBoxItem Content="Midnight"/><ComboBoxItem Content="Slate"/><ComboBoxItem Content="Forest"/></ComboBox>
+   <TextBlock Text="Accent color" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
+   <ComboBox x:Name="AccentBox" SelectionChanged="Appearance_Changed" SelectedIndex="0"><ComboBoxItem Content="Sky blue" Tag="#91C7F2"/><ComboBoxItem Content="Mint" Tag="#81E1B7"/><ComboBoxItem Content="Lavender" Tag="#BDA6FF"/><ComboBoxItem Content="Amber" Tag="#FFD28A"/><ComboBoxItem Content="Rose" Tag="#FFA6BF"/></ComboBox>
+   <TextBlock Text="Panel opacity · subtle glass to solid" Style="{StaticResource Caption}" Margin="0,12,0,6"/>
+   <Slider x:Name="OpacitySlider" Minimum="45" Maximum="100" Value="94" ValueChanged="Appearance_Changed"/>
+   <TextBlock Text="Preferences save automatically on this PC." FontSize="10" Foreground="#96A6B9" Margin="0,8,0,0"/>
+  </StackPanel></Border>
+
+   </StackPanel>
+  </Border>
+ </Popup>
+ <Popup x:Name="ConnectionPopup" Placement="Center" PlacementTarget="{Binding ElementName=Shell}" AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade" Opened="Popup_Opened">
+  <Border Width="470" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI" PreviewKeyDown="Popup_KeyDown">
+   <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Tag="ConnectionPopup" Click="Popup_Close" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Bluetooth"/><TextBlock Text="Bluetooth" FontSize="18" VerticalAlignment="Center"/></DockPanel>
+  <StackPanel x:Name="ConnectionPanel">
   <DockPanel Margin="0,16,0,8"><Button x:Name="ScanButton" Content="Scan Bluetooth" DockPanel.Dock="Right" Click="Scan_Click"/><Button x:Name="DisconnectButton" Content="Disconnect" DockPanel.Dock="Right" Click="Disconnect_Click" Visibility="Collapsed"/><TextBlock Text="Nearby controllers" FontSize="13" VerticalAlignment="Center"/></DockPanel>
   <TextBlock Text="Controller 67 address (optional)" Style="{StaticResource Caption}"/>
   <TextBox x:Name="AddressBox" MaxLength="17" FontFamily="Consolas" ToolTip="Enter the Bluetooth MAC, or leave empty to discover Controller 67 devices."/>
@@ -56,8 +70,23 @@
   <Button x:Name="ConnectButton" Content="Connect selected controller" Click="Connect_Click" Visibility="Collapsed" IsEnabled="False"/>
   <Button Content="Open Windows Bluetooth settings ↗" Click="WindowsBluetooth_Click" HorizontalAlignment="Left" Padding="8,4"/>
   </StackPanel>
-  <TextBlock x:Name="StatusText" Text="Close other AC Infinity apps, then scan for your controller." TextWrapping="Wrap" Foreground="#AFC1D7" FontSize="11" Margin="0,10,0,8"/>
-  <Expander Header="Stored programs" Margin="0,5,0,5"><TextBlock x:Name="ProgramsText" Text="Connect to read stored timer, cycle, Auto, and schedule settings." Foreground="#AFC1D7" TextWrapping="Wrap" Margin="0,10,0,6" FontSize="12"/></Expander>
-  <Expander Header="Connection help" Margin="0,6,0,0"><TextBlock Text="Keep the powered controller close to this PC. Disconnect the phone/Mac app first. The two fan connections share programming. VPD uses air temperature with no leaf offset. Use − to hide to the tray and × to quit. Drag the panel background to move it, even when pinned. This is an unofficial personal app." TextWrapping="Wrap" Foreground="#96A6B9" FontSize="11" Margin="0,10,0,0"/></Expander>
- </StackPanel></ScrollViewer></Border>
+<TextBlock Text="{Binding Text, ElementName=StatusText}" TextWrapping="Wrap" Foreground="#AFC1D7" FontSize="11" Margin="0,12,0,0"/>
+   </StackPanel>
+  </Border>
+ </Popup>
+ <Popup x:Name="ProgramsPopup" Placement="Center" PlacementTarget="{Binding ElementName=Shell}" AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade" Opened="Popup_Opened">
+  <Border Width="470" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI" PreviewKeyDown="Popup_KeyDown">
+   <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Tag="ProgramsPopup" Click="Popup_Close" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Stored programs"/><TextBlock Text="Stored programs" FontSize="18" VerticalAlignment="Center"/></DockPanel>
+<TextBlock x:Name="ProgramsText" Text="Connect to read stored timer, cycle, Auto, and schedule settings." Foreground="#AFC1D7" TextWrapping="Wrap" Margin="0,10,0,6" FontSize="12"/>
+   </StackPanel>
+  </Border>
+ </Popup>
+ <Popup x:Name="HelpPopup" Placement="Center" PlacementTarget="{Binding ElementName=Shell}" AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade" Opened="Popup_Opened">
+  <Border Width="470" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI" PreviewKeyDown="Popup_KeyDown">
+   <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Tag="HelpPopup" Click="Popup_Close" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Connection help"/><TextBlock Text="Connection help" FontSize="18" VerticalAlignment="Center"/></DockPanel>
+<TextBlock Text="Keep the powered controller close to this PC. Disconnect the phone/Mac app first. The two fan connections share programming. VPD uses air temperature with no leaf offset. Use − to hide to the tray and × to quit. Drag the panel background to move it, even when pinned. This is an unofficial personal app." TextWrapping="Wrap" Foreground="#96A6B9" FontSize="11" Margin="0,10,0,0"/>
+   </StackPanel>
+  </Border>
+ </Popup>
+</Grid>
 </Window>
