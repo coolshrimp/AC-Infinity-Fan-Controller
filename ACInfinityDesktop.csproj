@@ -9,7 +9,7 @@
     <EnableDefaultItems>false</EnableDefaultItems>
     <RootNamespace>ACInfinityDesktop</RootNamespace>
     <AssemblyName>AC-Infinity-Desktop</AssemblyName>
-    <Version>0.5.1</Version>
+    <Version>0.6.0</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
@@ -23,6 +23,8 @@
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
     <Page Include="Theme.xaml" />
+    <Page Include="FanControlWindow.xaml;SensorChartView.xaml" />
+    <Compile Include="FanControlWindow.xaml.cs;SensorChartView.xaml.cs" />
     <Page Include="AppearanceWindow.xaml;BluetoothWindow.xaml;ProgramsWindow.xaml;HelpWindow.xaml" />
     <Compile Include="AppearanceWindow.xaml.cs;BluetoothWindow.xaml.cs;ProgramsWindow.xaml.cs;HelpWindow.xaml.cs" />
     <Compile Include="App.xaml.cs" />

@@ -19,7 +19,18 @@ public partial class MainWindow : Window
     private readonly BluetoothWindow bluetoothWindow=new();
     private readonly ProgramsWindow programsWindow=new();
     private readonly HelpWindow helpWindow=new();
-    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow};
+    private readonly FanControlWindow fanControlWindow=new();
+    private readonly SensorHistory history=new();
+    private DateTimeOffset historySaved,fastReadUntil;
+    private int? requestedSpeed;
+    private string historyAddress="";
+    private Slider SpeedSlider=>fanControlWindow.SpeedSlider;
+    private TextBlock SpeedValue=>fanControlWindow.SpeedValue;
+    private TextBlock PresetText=>fanControlWindow.PresetText;
+    private Button OffButton=>fanControlWindow.OffButton;
+    private Button OnButton=>fanControlWindow.OnButton;
+    private Button ApplyButton=>fanControlWindow.ApplyButton;
+    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow,fanControlWindow};
     private TextBox AddressBox=>bluetoothWindow.AddressBox;
     private ListBox DevicesList=>bluetoothWindow.DevicesList;
     private Button ScanButton=>bluetoothWindow.ScanButton;
@@ -42,6 +53,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         foreach(var panel in Panels)panel.Resources=Resources;
+        SpeedSlider.ValueChanged+=Speed_Changed;OffButton.Click+=Off_Click;OnButton.Click+=On_Click;ApplyButton.Click+=Apply_Click;fanControlWindow.ProgramsButton.Click+=Programs_Click;
         ScanButton.Click+=Scan_Click;ConnectButton.Click+=Connect_Click;DisconnectButton.Click+=Disconnect_Click;
         DevicesList.SelectionChanged+=Device_Selected;bluetoothWindow.WindowsBluetoothButton.Click+=WindowsBluetooth_Click;
         AutoConnectBox.Click+=Appearance_Changed;OpacitySlider.ValueChanged+=Appearance_Changed;
@@ -55,7 +67,8 @@ public partial class MainWindow : Window
         OpacitySlider.Value=Math.Clamp(prefs.Transparency,45,100);Topmost=prefs.Pinned;
         if(prefs.Left is double x && prefs.Top is double y && double.IsFinite(x)&&double.IsFinite(y))
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
-        initialized=true;ApplyAppearance();
+        historyAddress=prefs.address;history.SelectDevice(Path.GetDirectoryName(preferences)!,prefs.address,smoke);
+        initialized=true;ApplyAppearance();ApplyWidgetView();
         IsVisibleChanged+=(_,_)=>UpdateFanAnimation(controller.Connected?controller.State.Output:null);
         timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true,true);else {UpdateView();await AutoConnectAsync();}};
         UpdateView();
@@ -82,6 +95,14 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--transparent"))OpacitySlider.Value=45;
             if(Environment.GetCommandLineArgs().Contains("--light")){prefs.PanelColor="#F0E9D6";prefs.Accent="#CC3377";ApplyAppearance();Settings_Click(this,new RoutedEventArgs());}
+            if(Environment.GetCommandLineArgs().Contains("--controls"))Control_Click(this,new RoutedEventArgs());
+            if(Environment.GetCommandLineArgs().Contains("--readings")){prefs.WidgetView="Readings";ApplyWidgetView();}
+            if(Environment.GetCommandLineArgs().Contains("--chart")){prefs.WidgetView="Chart";ApplyWidgetView();}
+            if(Environment.GetCommandLineArgs().Contains("--demo"))
+            {
+                var now=DateTimeOffset.Now;for(int i=0;i<1440;i++)history.Add(new SensorSample(now.AddHours(-6).AddSeconds(i*15),23+Math.Sin(i/150d),48+Math.Cos(i/170d)*3));
+                DeviceNameText.Text="Controller 67";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";StatusText.Text="Preview · simulated readings";UpdateCharts();
+            }
             if(AddressBox.Text.Length!=0)throw new InvalidOperationException("Address field must start blank");
             UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
         }
@@ -99,7 +120,8 @@ public partial class MainWindow : Window
     public async Task QuitAsync()
     {
         if(quitting)return;ClosePopups();SavePreferences();quitting=true;timer.Stop();
-        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=true;
+        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=fanControlWindow.AllowClose=true;
+        SaveHistory();
         foreach(var panel in Panels)panel.Close();
         await controller.DisconnectAsync();
         if(tray!=null){tray.Visible=false;tray.ContextMenuStrip?.Dispose();tray.Icon?.Dispose();tray.Dispose();}
@@ -150,7 +172,8 @@ public partial class MainWindow : Window
     {
         await controller.ConnectAsync(target);
         if(quitting){await controller.DisconnectAsync();return;}
-        prefs.address=target.Mac;AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
+        if(historyAddress!=target.Mac){SaveHistory();history.SelectDevice(Path.GetDirectoryName(preferences)!,target.Mac,smoke);historyAddress=target.Mac;}
+        prefs.DeviceName=target.Name;prefs.address=target.Mac;AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
         DevicesList.Visibility=Visibility.Collapsed;ConnectButton.Visibility=Visibility.Collapsed;
         SpeedSlider.Value=controller.State.On is >=1 and <=10?controller.State.On:5;
         StatusText.Text="Connected. Live readings refresh every 15 seconds.";
@@ -188,9 +211,9 @@ public partial class MainWindow : Window
     private void Device_Selected(object sender,SelectionChangedEventArgs e)=>UpdateButtons();
     private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(controller.DisconnectAsync,"Releasing Bluetooth...");if(!controller.Connected)AddressBox.Clear();StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
     private async void Refresh_Click(object sender,RoutedEventArgs e)=>await RunAsync(controller.RefreshAsync,"",true,true);
-    private async void Apply_Click(object sender,RoutedEventArgs e){int level=(int)SpeedSlider.Value;await RunAsync(()=>controller.SetSpeedAsync(level),"Applying manual speed…");}
-    private async void On_Click(object sender,RoutedEventArgs e)=>await RunAsync(()=>controller.SetModeAsync(true),"Selecting On mode…");
-    private async void Off_Click(object sender,RoutedEventArgs e)=>await RunAsync(()=>controller.SetModeAsync(false),"Selecting Off mode…");
+    private async void Apply_Click(object sender,RoutedEventArgs e){int level=(int)SpeedSlider.Value;await RunAsync(async()=>{await controller.SetSpeedAsync(level);FollowRamp(level);},"Applying manual speed…");}
+    private async void On_Click(object sender,RoutedEventArgs e)=>await RunAsync(async()=>{await controller.SetModeAsync(true);FollowRamp(controller.State.On);},"Selecting On mode…");
+    private async void Off_Click(object sender,RoutedEventArgs e)=>await RunAsync(async()=>{await controller.SetModeAsync(false);FollowRamp(controller.State.Off);},"Selecting Off mode…");
     private void Unit_Click(object sender,RoutedEventArgs e){fahrenheit=!fahrenheit;SavePreferences();UpdateView();}
     private void Pin_Click(object sender,RoutedEventArgs e){Topmost=!Topmost;foreach(var panel in Panels)panel.Topmost=Topmost;ApplyAppearance();SavePreferences();}
     private void Speed_Changed(object sender,RoutedPropertyChangedEventArgs<double> e){if(SpeedValue!=null)SpeedValue.Text=((int)e.NewValue).ToString();}
@@ -207,18 +230,46 @@ public partial class MainWindow : Window
     private void UpdateView()
     {
         bool live=controller.Connected;var s=controller.State;
+        DeviceNameText.Text=prefs.address.Length>0?(prefs.DeviceName=="Choose device"?"Controller 67":prefs.DeviceName):"Choose device";
+        DeviceNameText.ToolTip=DeviceNameText.Text;
+        if(live&&s.TemperatureC is double ht&&s.Humidity is double hr && history.Add(new SensorSample(s.Updated,ht,hr)) && DateTimeOffset.Now-historySaved>TimeSpan.FromMinutes(1))SaveHistory();
+        UpdateCharts();
+        if(!live||DateTimeOffset.Now>fastReadUntil||s.Output==requestedSpeed){requestedSpeed=null;timer.Interval=TimeSpan.FromSeconds(15);}
         ConnectionBadge.Text=live?"● Connected":"● Offline";ConnectionBadge.Foreground=live?Brushes.LightGreen:Brushes.LightSlateGray;
         UnitButton.Content=fahrenheit?"°F":"°C";
         TemperatureText.Text=live&&s.TemperatureC is double t?(fahrenheit?t*1.8+32:t).ToString("0.0"):"—";
         HumidityText.Text=live&&s.Humidity is double h?h.ToString("0.0"):"—";
         VpdText.Text=live&&s.TemperatureC is double c&&s.Humidity is double rh?(0.6108*Math.Exp(17.27*c/(c+237.3))*(1-rh/100)).ToString("0.00"):"—";
         UpdateFanAnimation(live?s.Output:null);
-        OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName:"Not connected";
-        UpdatedText.Text=live?$"Live read {s.Updated:HH:mm:ss}":"No live readings";
+        OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName+(requestedSpeed.HasValue?$" · {s.Output} → {requestedSpeed}":""):"Not connected";
+        UpdatedText.Text=live?$"Last updated {s.Updated:HH:mm:ss}":"No live readings";
         PresetText.Text=live?$"Saved On: {s.On} · Off: {s.Off}. Manual controls replace the active mode. Off mode uses that saved level.":"Manual controls replace the active mode. Off mode uses the stored minimum speed.";
         ProgramsText.Text=live?DescribePrograms(s.Settings):"Connect to read stored timer, cycle, Auto, and schedule settings.";
         UpdateButtons();
     }
+    private void FollowRamp(int target){requestedSpeed=target;fastReadUntil=DateTimeOffset.Now.AddSeconds(30);timer.Interval=TimeSpan.FromSeconds(2);}
+    private void Control_Click(object sender,RoutedEventArgs e)=>TogglePanel(fanControlWindow);
+    private void View_Click(object sender,RoutedEventArgs e)
+    {prefs.WidgetView=(string)((Button)sender).Tag;ApplyWidgetView();SavePreferences();}
+    private void Range_Click(object sender,RoutedEventArgs e)
+    {prefs.HistoryHours=int.Parse((string)((Button)sender).Tag);UpdateCharts();SavePreferences();}
+    private void ApplyWidgetView()
+    {
+        if(prefs.WidgetView is not ("Readings" or "Status" or "Chart"))prefs.WidgetView="Status";
+        DeviceStatusPanel.Visibility=prefs.WidgetView=="Status"?Visibility.Visible:Visibility.Collapsed;
+        ChartPanel.Visibility=prefs.WidgetView=="Chart"?Visibility.Visible:Visibility.Collapsed;
+        foreach(var button in new[]{ReadingsTab,StatusTab,ChartTab})
+        {button.Background=(string)button.Tag==prefs.WidgetView?(Brush)Resources["HeaderBrush"]:Brushes.Transparent;button.BorderBrush=(string)button.Tag==prefs.WidgetView?(Brush)Resources["AccentBrush"]:Brushes.Transparent;}
+        UpdateCharts();
+    }
+    private void UpdateCharts()
+    {
+        if(prefs.HistoryHours is not (1 or 6 or 24))prefs.HistoryHours=6;
+        var now=DateTimeOffset.Now;HistoryChart.Update(history.Range(now,prefs.HistoryHours),prefs.HistoryHours,fahrenheit,now);
+        foreach(var button in new[]{HourButton,SixHourButton,DayButton})button.BorderBrush=int.Parse((string)button.Tag)==prefs.HistoryHours?(Brush)Resources["AccentBrush"]:Brushes.Transparent;
+    }
+    private void SaveHistory()
+    {if(smoke)return;try{history.Save();historySaved=DateTimeOffset.Now;}catch(Exception ex){StatusText.Text="Could not save local history: "+ex.Message;}}
     private void UpdateFanAnimation(int? output)
     {
         int speed=IsVisible&&output is >=0 and <=10?output.Value:0;
@@ -318,6 +369,7 @@ public partial class MainWindow : Window
         appearanceWindow.AccentColorText.Text=$"Accent color  #{accent.R:X2}{accent.G:X2}{accent.B:X2}";
         PinTilt.Angle=Topmost?0:45;PinButton.ToolTip=Topmost?"Unpin from top":"Pin on top";
         PinButton.Foreground=Topmost?(Brush)Resources["AccentBrush"]:Brushes.LightSteelBlue;
+        if(initialized)ApplyWidgetView();
     }
     private static string DescribePrograms(Dictionary<byte,byte[]> f)
     {

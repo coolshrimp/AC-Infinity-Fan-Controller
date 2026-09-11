@@ -1,0 +1,12 @@
+<Window x:Class="ACInfinityDesktop.FanControlWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Fan control" Width="460" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" PreviewKeyDown="Window_KeyDown" Closing="Window_Closing">
+ <Window.Resources><ResourceDictionary Source="Theme.xaml"/></Window.Resources>
+ <Border x:Name="PanelShell" Background="{DynamicResource WindowBrush}" CornerRadius="18" Padding="18" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"><StackPanel>
+  <DockPanel><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" ToolTip="Close fan controls" Padding="8,3"/><TextBlock Text="Fan control" FontSize="18"/></DockPanel>
+  <TextBlock Text="Controller 67 · Shared output" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,20"/>
+  <DockPanel><TextBlock x:Name="SpeedValue" Text="5" DockPanel.Dock="Right"/><TextBlock Text="Manual speed"/></DockPanel>
+  <Slider x:Name="SpeedSlider" Minimum="1" Maximum="10" Value="5" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,12,0,12" ToolTip="Choose a speed, then Apply speed"/>
+  <UniformGrid Columns="3"><Button x:Name="OffButton" Content="Off mode" ToolTip="Use the saved minimum speed"/><Button x:Name="OnButton" Content="Resume On" ToolTip="Use the saved On speed"/><Button x:Name="ApplyButton" Content="Apply speed" Background="{DynamicResource AccentBrush}"/></UniformGrid>
+  <TextBlock x:Name="PresetText" Text="Manual controls replace the active mode. Off mode uses the saved minimum speed." TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,12"/>
+  <Button x:Name="ProgramsButton" Content="View stored programs" HorizontalAlignment="Left"/>
+ </StackPanel></Border>
+</Window>

@@ -5,6 +5,9 @@ namespace ACInfinityDesktop;
 public sealed class Preferences
 {
     public string address {get;set;}="";
+    public string DeviceName {get;set;}="Choose device";
+    public string WidgetView {get;set;}="Status";
+    public int HistoryHours {get;set;}=6;
     public string unit {get;set;}="C";
     public bool AutoConnect {get;set;}=true;
     public bool Pinned {get;set;}

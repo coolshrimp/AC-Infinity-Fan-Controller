@@ -1,5 +1,13 @@
 # Changes
 
+## 0.6.0
+
+- Compact Mac-inspired widget with saved Readings, Device Status, and Chart views.
+- Device chooser and last-updated connection header; separate designer-editable Fan control window.
+- Up to 24 hours of local per-controller sensor history with 1h/6h/24h plots and clear data gaps.
+- Faster temporary reads after manual changes with reported-to-target speed feedback.
+- No synthesized AI score or unsupported port data.
+
 ## 0.5.1
 
 - Automatically probe discovered ACI candidates before listing them, with detected Bluetooth addresses and verification labels.

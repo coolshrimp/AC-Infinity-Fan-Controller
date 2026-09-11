@@ -54,6 +54,14 @@ internal static class ProtocolChecks
         Check(!candidate.SupportsControls);
         Check((candidate with {Verified=true}).SupportsControls);
         Check(!(candidate with {Verified=true,Type=2}).SupportsControls);
+        var history=new SensorHistory();var time=DateTimeOffset.Now;
+        Check(history.Add(new SensorSample(time.AddHours(-2),22,45)));
+        Check(!history.Add(new SensorSample(time.AddHours(-2),24,50)));
+        Check(!history.Add(new SensorSample(time,23,120)));
+        Check(history.Add(new SensorSample(time,23,48)));
+        Check(history.Range(time,1).Count==1 && history.Range(time,6).Count==2);
+        Check(history.Range(time,1)[0].Vpd>1 && history.Range(time,1)[0].Vpd<2);
+        history.SelectDevice(Path.GetTempPath(),"",true);Check(history.Range(time,24).Count==0);
         return new {passed,framework="native .NET",hardwareWrites=false};
     }
 }
