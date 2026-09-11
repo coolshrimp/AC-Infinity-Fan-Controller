@@ -29,13 +29,10 @@
     <StackPanel>
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <CheckBox x:Name="OnOffToggle" Style="{StaticResource UimToggleSwitch}" Background="{DynamicResource AccentBrush}" BorderBrush="#46515F" Foreground="{DynamicResource TextBrush}" Content="On / Off" VerticalAlignment="Center" ToolTip="Switch manual On / Off mode. Off uses the saved minimum speed and may still spin." AutomationProperties.Name="Manual fan On or Off" Click="OnOff_Click"/>
-      <TextBlock Grid.Column="1" Text="Manual speed" Foreground="{DynamicResource MutedBrush}" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,8,0"/>
-      <TextBlock x:Name="SpeedValue" Grid.Column="2" Text="5" FontSize="12" VerticalAlignment="Center"/>
+      <TextBlock Grid.Column="1" Text="Current speed" Foreground="{DynamicResource MutedBrush}" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,8,0"/>
+      <TextBlock x:Name="SpeedValue" Grid.Column="2" Text="—" Foreground="{DynamicResource AccentBrush}" FontSize="12" VerticalAlignment="Center"/>
      </Grid>
-     <Grid Margin="0,7,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <Slider x:Name="SpeedSlider" Style="{StaticResource UimModernSlider}" Foreground="{DynamicResource AccentBrush}" Background="#46515F" Minimum="1" Maximum="10" Value="5" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1" IsMoveToPointEnabled="True" ToolTip="Choose a speed, then click Apply" VerticalAlignment="Center" Margin="0,0,10,0"/>
-      <Button x:Name="ApplyButton" Grid.Column="1" Content="Apply" Background="{DynamicResource AccentBrush}" Padding="10,4" Margin="0" ToolTip="Apply the selected speed in manual On mode"/>
-     </Grid>
+     <Slider x:Name="SpeedSlider" Style="{StaticResource LiveSpeedSlider}" Foreground="{DynamicResource AccentBrush}" Background="#46515F" Minimum="0" Maximum="10" Value="0" Tag="0" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1" IsMoveToPointEnabled="True" ToolTip="Drag to choose speed; release to apply. Colored fill shows reported speed. Zero selects saved Off mode." AutomationProperties.Name="Fan speed, applies on release" VerticalAlignment="Center" Margin="0,7,0,0"/>
      <TextBlock x:Name="PresetText" Text="Off mode uses the saved minimum speed." FontSize="9" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
     </StackPanel>
    </Border>

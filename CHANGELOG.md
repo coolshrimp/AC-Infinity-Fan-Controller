@@ -1,5 +1,13 @@
 # Changes
 
+## 0.6.2
+
+- Slider follows reported fan output; dragging previews a target and releasing applies it once, without an Apply button. Keyboard adjustments apply on key release.
+- Independent accent-colored track and number show current output while the target is pending. Refreshes preserve an active drag.
+- Two-second reads during manual ramps or detected speed changes, returning to ten seconds after fresh replies confirm settling. Stale redraws do not count toward settling.
+- Slider zero selects the existing saved Off mode without changing its minimum speed.
+- Added adaptive polling tests and offline slider interaction checks.
+
 ## 0.6.1
 
 - Compact On/Off toggle, speed slider, and Apply button beneath the sensor readings in every main-widget view.

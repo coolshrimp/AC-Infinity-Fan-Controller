@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Forms = System.Windows.Forms;
@@ -20,8 +21,11 @@ public partial class MainWindow : Window
     private readonly ProgramsWindow programsWindow=new();
     private readonly HelpWindow helpWindow=new();
     private readonly SensorHistory history=new();
-    private DateTimeOffset historySaved,fastReadUntil;
-    private int? requestedSpeed;
+    private DateTimeOffset historySaved;
+    private readonly SpeedPolling speedPolling=new();
+    private bool editingSpeed, submittingSpeed;
+    private double speedAtStart;
+    private readonly List<int> smokeSpeedCommands=new();
     private string historyAddress="";
     private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow};
     private TextBox AddressBox=>bluetoothWindow.AddressBox;
@@ -33,7 +37,7 @@ public partial class MainWindow : Window
     private Slider OpacitySlider=>appearanceWindow.OpacitySlider;
     private TextBlock ProgramsText=>programsWindow.ProgramsText;
     private readonly BluetoothController controller=new();
-    private readonly DispatcherTimer timer=new(){Interval=TimeSpan.FromSeconds(15)};
+    private readonly DispatcherTimer timer=new(){Interval=TimeSpan.FromSeconds(10)};
     private Forms.NotifyIcon? tray;
     private bool busy, refreshing, quitting, fahrenheit, initialized;
     private readonly System.Threading.SemaphoreSlim operationGate=new(1,1);
@@ -47,7 +51,13 @@ public partial class MainWindow : Window
         InitializeComponent();
         foreach(var panel in Panels){panel.Resources=Resources;panel.SizeChanged+=(_,_)=>UpdateDockedPanels();}
         LocationChanged+=(_,_)=>UpdateDockedPanels();SizeChanged+=(_,_)=>UpdateDockedPanels();
-        SpeedSlider.ValueChanged+=Speed_Changed;ApplyButton.Click+=Apply_Click;
+        SpeedSlider.ValueChanged+=Speed_Changed;
+        SpeedSlider.PreviewMouseLeftButtonDown+=(_,_)=>BeginSpeedEdit();
+        SpeedSlider.AddHandler(Mouse.PreviewMouseUpEvent,new MouseButtonEventHandler(async(_,e)=>{if(e.ChangedButton==MouseButton.Left)await ReleaseSpeedAsync();}),true);
+        SpeedSlider.LostMouseCapture+=async(_,_)=>{if(Mouse.LeftButton==MouseButtonState.Released)await ReleaseSpeedAsync();else {editingSpeed=false;UpdateView();}};
+        SpeedSlider.PreviewKeyDown+=(_,e)=>{if(IsSpeedKey(e.Key))BeginSpeedEdit();};
+        SpeedSlider.KeyUp+=async(_,e)=>{if(IsSpeedKey(e.Key))await ReleaseSpeedAsync();};
+        SpeedSlider.LostKeyboardFocus+=async(_,_)=>await ReleaseSpeedAsync();
         ScanButton.Click+=Scan_Click;ConnectButton.Click+=Connect_Click;DisconnectButton.Click+=Disconnect_Click;
         DevicesList.SelectionChanged+=Device_Selected;bluetoothWindow.WindowsBluetoothButton.Click+=WindowsBluetooth_Click;
         AutoConnectBox.Click+=Appearance_Changed;OpacitySlider.ValueChanged+=Appearance_Changed;
@@ -71,6 +81,18 @@ public partial class MainWindow : Window
     {
         foreach(var panel in Panels)panel.Owner=this;
         if(smoke){
+            // Exercise release-to-set without a radio, including telemetry during a drag.
+            SpeedSlider.IsEnabled=true;SpeedSlider.Value=3;
+            if(smokeSpeedCommands.Count!=0)throw new InvalidOperationException("Telemetry issued a speed command");
+            BeginSpeedEdit();SpeedSlider.Value=8;UpdateView();
+            if(SpeedSlider.Value!=8||smokeSpeedCommands.Count!=0)throw new InvalidOperationException("Refresh interrupted slider editing");
+            await ReleaseSpeedAsync();await ReleaseSpeedAsync();
+            if(smokeSpeedCommands.Count!=1||smokeSpeedCommands[0]!=8)throw new InvalidOperationException("Release must submit exactly once");
+            SpeedSlider.IsEnabled=true;BeginSpeedEdit();await ReleaseSpeedAsync();
+            if(smokeSpeedCommands.Count!=1)throw new InvalidOperationException("Unchanged release issued a command");
+            SpeedSlider.IsEnabled=true;SpeedSlider.Value=5;BeginSpeedEdit();SpeedSlider.Value=0;await ReleaseSpeedAsync();
+            if(smokeSpeedCommands.Count!=2||smokeSpeedCommands[1]!=0)throw new InvalidOperationException("Off release failed");
+            UpdateView();
             Pin_Click(this,new RoutedEventArgs());if(!Topmost)throw new InvalidOperationException("Pin failed");
             Pin_Click(this,new RoutedEventArgs());if(Topmost)throw new InvalidOperationException("Unpin failed");
             Connection_Click(this,new RoutedEventArgs());if(!bluetoothWindow.IsVisible)throw new InvalidOperationException("Connection panel failed");
@@ -98,7 +120,7 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--demo"))
             {
                 var now=DateTimeOffset.Now;for(int i=0;i<1440;i++)history.Add(new SensorSample(now.AddHours(-6).AddSeconds(i*15),23+Math.Sin(i/150d),48+Math.Cos(i/170d)*3));
-                DeviceNameText.Text="Controller 67";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;ApplyButton.IsEnabled=true;StatusText.Text="Preview · simulated readings";UpdateCharts();
+                DeviceNameText.Text="Controller 67";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;SpeedSlider.Tag=6d;SpeedValue.Text="6 / 10";StatusText.Text="Preview · simulated readings";UpdateCharts();
             }
             if(AddressBox.Text.Length!=0)throw new InvalidOperationException("Address field must start blank");
             UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
@@ -172,8 +194,8 @@ public partial class MainWindow : Window
         if(historyAddress!=target.Mac){SaveHistory();history.SelectDevice(Path.GetDirectoryName(preferences)!,target.Mac,smoke);historyAddress=target.Mac;}
         prefs.DeviceName=target.Name;prefs.address=target.Mac;AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
         DevicesList.Visibility=Visibility.Collapsed;ConnectButton.Visibility=Visibility.Collapsed;
-        SpeedSlider.Value=controller.State.On is >=1 and <=10?controller.State.On:5;
-        StatusText.Text="Connected. Live readings refresh every 15 seconds.";
+        SpeedSlider.Value=controller.State.Output??0;
+        StatusText.Text="Connected. Readings refresh every 10 seconds, or 2 seconds while changing.";
     }
     private async Task RunAsync(Func<Task> action,string message,bool background=false,bool isRefresh=false)
     {
@@ -183,7 +205,7 @@ public partial class MainWindow : Window
         if(quitting){operationGate.Release();return;}
         busy=true;refreshing=isRefresh;UpdateButtons();
         if(message.Length>0){StatusText.Text=message;StatusText.Foreground=(Brush)Resources["MutedBrush"];}
-        try {await action();UpdateView();if(!background){StatusText.Text=controller.Connected?"Controller responded. Live readings refresh every 15 seconds.":"Ready.";StatusText.Foreground=(Brush)Resources["MutedBrush"];}}
+        try {await action();UpdateView();if(!background){StatusText.Text=controller.Connected?"Controller responded. Readings refresh every 10 seconds, or 2 seconds while changing.":"Ready.";StatusText.Foreground=(Brush)Resources["MutedBrush"];}}
         catch(Exception ex){if(!controller.Connected)reconnect.Failed(DateTime.UtcNow);UpdateView();StatusText.Text=ex is OperationCanceledException?"Connection timed out. Move closer and close other AC Infinity apps.":ex.Message;StatusText.Foreground=Brushes.LightSalmon;}
         finally {busy=false;refreshing=false;UpdateButtons();operationGate.Release();}
     }
@@ -208,7 +230,29 @@ public partial class MainWindow : Window
     private void Device_Selected(object sender,SelectionChangedEventArgs e)=>UpdateButtons();
     private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(controller.DisconnectAsync,"Releasing Bluetooth...");if(!controller.Connected)AddressBox.Clear();StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
     private async void Refresh_Click(object sender,RoutedEventArgs e)=>await RunAsync(controller.RefreshAsync,"",true,true);
-    private async void Apply_Click(object sender,RoutedEventArgs e){int level=(int)SpeedSlider.Value;await RunAsync(async()=>{await controller.SetSpeedAsync(level);FollowRamp(level);},"Applying manual speed…");}
+    private static bool IsSpeedKey(Key key)=>key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown;
+    private void BeginSpeedEdit()
+    {
+        if(editingSpeed||!SpeedSlider.IsEnabled)return;
+        editingSpeed=true;speedAtStart=SpeedSlider.Value;
+    }
+    private async Task ReleaseSpeedAsync()
+    {
+        if(!editingSpeed)return;
+        editingSpeed=false;int level=(int)SpeedSlider.Value;
+        if(level==(int)speedAtStart){UpdateView();return;}
+        if(smoke){smokeSpeedCommands.Add(level);return;}
+        if(!controller.Connected||submittingSpeed){UpdateView();return;}
+        submittingSpeed=true;
+        try
+        {
+            await RunAsync(async()=>{
+                if(level==0)await controller.SetModeAsync(false);else await controller.SetSpeedAsync(level);
+                FollowRamp(level==0?controller.State.Off:level);
+            },level==0?"Selecting saved Off mode...":$"Setting speed to {level}...");
+        }
+        finally{submittingSpeed=false;UpdateView();}
+    }
     private async void OnOff_Click(object sender,RoutedEventArgs e)
     {
         bool turnOn=OnOffToggle.IsChecked==true;
@@ -217,12 +261,13 @@ public partial class MainWindow : Window
     }
     private void Unit_Click(object sender,RoutedEventArgs e){fahrenheit=!fahrenheit;SavePreferences();UpdateView();}
     private void Pin_Click(object sender,RoutedEventArgs e){Topmost=!Topmost;foreach(var panel in Panels)panel.Topmost=Topmost;ApplyAppearance();SavePreferences();}
-    private void Speed_Changed(object sender,RoutedPropertyChangedEventArgs<double> e){if(SpeedValue!=null)SpeedValue.Text=((int)e.NewValue).ToString();}
+    private void Speed_Changed(object sender,RoutedPropertyChangedEventArgs<double> e)
+    {if(editingSpeed)PresetText.Text=(int)e.NewValue==0?"Release to select saved Off mode (minimum speed may be above zero).":$"Release to set speed {(int)e.NewValue}.";}
     private void UpdateButtons()
     {
         bool live=controller.Connected;
         bool blockControls=busy&&!refreshing;
-        foreach(var b in new[]{ApplyButton,RefreshButton})b.IsEnabled=live&&!blockControls;
+        foreach(var b in new[]{RefreshButton})b.IsEnabled=live&&!blockControls;
         OnOffToggle.IsEnabled=live&&!blockControls;SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
         ScanButton.Visibility=live?Visibility.Collapsed:Visibility.Visible;
         DisconnectButton.Visibility=live?Visibility.Visible:Visibility.Collapsed;DisconnectButton.IsEnabled=!blockControls;
@@ -235,7 +280,7 @@ public partial class MainWindow : Window
         DeviceNameText.ToolTip=DeviceNameText.Text;
         if(live&&s.TemperatureC is double ht&&s.Humidity is double hr && history.Add(new SensorSample(s.Updated,ht,hr)) && DateTimeOffset.Now-historySaved>TimeSpan.FromMinutes(1))SaveHistory();
         UpdateCharts();
-        if(!live||DateTimeOffset.Now>fastReadUntil||s.Output==requestedSpeed){requestedSpeed=null;timer.Interval=TimeSpan.FromSeconds(15);}
+        speedPolling.Observe(s.Output,s.Updated,DateTimeOffset.Now,live);timer.Interval=speedPolling.Interval;
         ConnectionBadge.Text=live?"● Connected":"● Offline";ConnectionBadge.Foreground=live?Brushes.LightGreen:Brushes.LightSlateGray;
         UnitButton.Content=fahrenheit?"°F":"°C";
         TemperatureText.Text=live&&s.TemperatureC is double t?(fahrenheit?t*1.8+32:t).ToString("0.0"):"—";
@@ -243,13 +288,18 @@ public partial class MainWindow : Window
         VpdText.Text=live&&s.TemperatureC is double c&&s.Humidity is double rh?(0.6108*Math.Exp(17.27*c/(c+237.3))*(1-rh/100)).ToString("0.00"):"—";
         OnOffToggle.IsChecked=live&&s.Mode==2;OnOffToggle.Content=!live?"On / Off":s.Mode==2?"On":s.Mode==1?"Off":"Auto";
         UpdateFanAnimation(live?s.Output:null);
-        OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName+(requestedSpeed.HasValue?$" · {s.Output} → {requestedSpeed}":""):"Not connected";
+        OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName+(speedPolling.Target.HasValue?$" · {s.Output} → {speedPolling.Target}":""):"Not connected";
         UpdatedText.Text=live?$"Last updated {s.Updated:HH:mm:ss}":"No live readings";
-        PresetText.Text=live?$"Saved On {s.On} · Off {s.Off}. Apply selects manual mode.":"Off uses the saved minimum speed; it may still spin.";
+        SpeedValue.Text=live&&s.Output.HasValue?$"{s.Output} / 10":"—";
+        SpeedSlider.Tag=(double)(live?s.Output??0:0);
+        if(!editingSpeed&&!submittingSpeed)SpeedSlider.Value=live?s.Output??0:0;
+        if(!editingSpeed)PresetText.Text=!live?"Release slider to set speed. Zero selects saved Off mode.":
+            speedPolling.Target.HasValue?$"Current {s.Output} → target {speedPolling.Target} · checking every 2 seconds":
+            speedPolling.Fast?"Speed changing · checking every 2 seconds":$"Release to set speed · Off uses saved minimum {s.Off}.";
         ProgramsText.Text=live?DescribePrograms(s.Settings):"Connect to read stored timer, cycle, Auto, and schedule settings.";
         UpdateButtons();
     }
-    private void FollowRamp(int target){requestedSpeed=target;fastReadUntil=DateTimeOffset.Now.AddSeconds(30);timer.Interval=TimeSpan.FromSeconds(2);}
+    private void FollowRamp(int target){speedPolling.Request(target,DateTimeOffset.Now);timer.Interval=speedPolling.Interval;}
     private void View_Click(object sender,RoutedEventArgs e)
     {prefs.WidgetView=(string)((Button)sender).Tag;ApplyWidgetView();SavePreferences();}
     private void Range_Click(object sender,RoutedEventArgs e)
@@ -369,7 +419,6 @@ public partial class MainWindow : Window
         Color Mix(Color value,double factor)=>Color.FromRgb((byte)Math.Clamp(value.R*factor,0,255),(byte)Math.Clamp(value.G*factor,0,255),(byte)Math.Clamp(value.B*factor,0,255));
         SolidColorBrush Glass(Color color){color.A=(byte)(255*Math.Clamp(prefs.Transparency,45,100)/100);return new(color);}
         Resources["AccentBrush"]=new SolidColorBrush(accent);
-        ApplyButton.Foreground=(accent.R*.299+accent.G*.587+accent.B*.114)>155?Brushes.Black:Brushes.White;
         Resources["WindowBrush"]=Glass(panel);Resources["CardBrush"]=Glass(Mix(panel,.86));Resources["HeaderBrush"]=Glass(Mix(panel,light?.92:1.18));
         Resources["TextBrush"]=new SolidColorBrush(light?Color.FromRgb(20,30,40):Color.FromRgb(238,243,248));
         Resources["MutedBrush"]=new SolidColorBrush(light?Color.FromRgb(50,65,80):Color.FromRgb(175,193,215));

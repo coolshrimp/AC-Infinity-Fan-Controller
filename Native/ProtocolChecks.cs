@@ -70,6 +70,20 @@ internal static class ProtocolChecks
         Check(PanelDocking.Place(new System.Windows.Rect(600,700,450,300),new System.Windows.Size(1000,400),work)==new System.Windows.Point(600,290));
         Check(PanelDocking.Place(new System.Windows.Rect(100,900,450,300),size,work)==new System.Windows.Point(100,490));
         Check(PanelDocking.Place(new System.Windows.Rect(-900,100,450,300),size,new System.Windows.Rect(-1920,0,1920,1080))==new System.Windows.Point(-1410,100));
+        var polling=new SpeedPolling();var clock=new DateTimeOffset(2026,1,1,0,0,0,TimeSpan.Zero);
+        polling.Observe(4,clock,clock,true);Check(polling.Interval.TotalSeconds==10);
+        polling.Request(8,clock);Check(polling.Fast&&polling.Target==8);
+        polling.Observe(6,clock.AddSeconds(2),clock.AddSeconds(2),true);Check(polling.Fast);
+        polling.Observe(6,clock.AddSeconds(2),clock.AddSeconds(40),true);Check(polling.Fast); // Same reply cannot establish stability.
+        polling.Observe(8,clock.AddSeconds(4),clock.AddSeconds(4),true);Check(polling.Fast);
+        polling.Observe(8,clock.AddSeconds(6),clock.AddSeconds(6),true);Check(!polling.Fast&&polling.Target==null);
+        polling.Observe(7,clock.AddSeconds(16),clock.AddSeconds(16),true);Check(polling.Fast); // External/Auto changes also speed up reads.
+        polling.Observe(7,clock.AddSeconds(26),clock.AddSeconds(26),true);Check(!polling.Fast);
+        polling.Request(10,clock.AddSeconds(26));
+        polling.Observe(7,clock.AddSeconds(28),clock.AddSeconds(28),true);Check(polling.Fast);
+        polling.Observe(7,clock.AddSeconds(38),clock.AddSeconds(38),true);Check(!polling.Fast); // Settled short of requested output.
+        polling.Request(10,clock.AddSeconds(40));polling.Observe(null,clock.AddSeconds(132),clock.AddSeconds(132),true);Check(!polling.Fast);
+        polling.Request(10,clock.AddSeconds(140));polling.Observe(null,clock.AddSeconds(142),clock.AddSeconds(142),false);Check(!polling.Fast&&polling.Target==null);
         return new {passed,framework="native .NET",hardwareWrites=false};
     }
 }
