@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <RootNamespace>ACInfinityDesktop</RootNamespace>
+    <AssemblyName>AC-Infinity-Desktop</AssemblyName>
+    <Version>0.3.0</Version>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <DebugType>embedded</DebugType>
+    <ApplicationIcon>ui\icon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainWindow.xaml" />
+    <Compile Include="App.xaml.cs" />
+    <Compile Include="MainWindow.xaml.cs" />
+    <Compile Include="Native\*.cs" />
+    <Resource Include="ui\icon.ico" />
+    <Resource Include="ui\icon.png" />
+    <EmbeddedResource Include="vendor\Viss-LICENSE.txt" />
+    <EmbeddedResource Include="vendor\THIRD_PARTY_NOTICES.md" />
+    <None Include="Properties\PublishProfiles\SingleExe.pubxml" />
+  </ItemGroup>
+</Project>
