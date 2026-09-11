@@ -33,7 +33,8 @@ public partial class MainWindow : Window
     private readonly BluetoothController controller=new();
     private readonly DispatcherTimer timer=new(){Interval=TimeSpan.FromSeconds(15)};
     private Forms.NotifyIcon? tray;
-    private bool busy, quitting, fahrenheit, initialized;
+    private bool busy, refreshing, quitting, fahrenheit, initialized;
+    private readonly System.Threading.SemaphoreSlim operationGate=new(1,1);
     private int animatedFanSpeed=-1;
     private readonly bool smoke=Environment.GetCommandLineArgs().Contains("--smoke");
     private Preferences prefs=new();
@@ -58,7 +59,7 @@ public partial class MainWindow : Window
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
         initialized=true;ApplyAppearance();
         IsVisibleChanged+=(_,_)=>UpdateFanAnimation(controller.Connected?controller.State.Output:null);
-        timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true);else {UpdateView();await AutoConnectAsync();}};
+        timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true,true);else {UpdateView();await AutoConnectAsync();}};
         UpdateView();
     }
     private async void Window_Loaded(object sender,RoutedEventArgs e)
@@ -131,13 +132,17 @@ public partial class MainWindow : Window
         SpeedSlider.Value=controller.State.On is >=1 and <=10?controller.State.On:5;
         StatusText.Text="Connected. Live readings refresh every 15 seconds.";
     }
-    private async Task RunAsync(Func<Task> action,string message,bool background=false)
+    private async Task RunAsync(Func<Task> action,string message,bool background=false,bool isRefresh=false)
     {
-        if(busy)return;busy=true;UpdateButtons();
+        // A user command may wait for a status read; duplicate refreshes are skipped.
+        if(busy && (!refreshing || isRefresh))return;
+        await operationGate.WaitAsync();
+        if(quitting){operationGate.Release();return;}
+        busy=true;refreshing=isRefresh;UpdateButtons();
         if(message.Length>0){StatusText.Text=message;StatusText.Foreground=Brushes.LightSteelBlue;}
         try {await action();UpdateView();if(!background){StatusText.Text=controller.Connected?"Controller responded. Live readings refresh every 15 seconds.":"Ready.";StatusText.Foreground=Brushes.LightSteelBlue;}}
         catch(Exception ex){if(!controller.Connected)reconnect.Failed(DateTime.UtcNow);UpdateView();StatusText.Text=ex is OperationCanceledException?"Connection timed out. Move closer and close other AC Infinity apps.":ex.Message;StatusText.Foreground=Brushes.LightSalmon;}
-        finally {busy=false;UpdateButtons();}
+        finally {busy=false;refreshing=false;UpdateButtons();operationGate.Release();}
     }
     private async void Scan_Click(object sender,RoutedEventArgs e)
     {
@@ -159,7 +164,7 @@ public partial class MainWindow : Window
     }
     private void Device_Selected(object sender,SelectionChangedEventArgs e)=>UpdateButtons();
     private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(controller.DisconnectAsync,"Releasing Bluetooth…");StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
-    private async void Refresh_Click(object sender,RoutedEventArgs e)=>await RunAsync(controller.RefreshAsync,"Reading live status…");
+    private async void Refresh_Click(object sender,RoutedEventArgs e)=>await RunAsync(controller.RefreshAsync,"",true,true);
     private async void Apply_Click(object sender,RoutedEventArgs e){int level=(int)SpeedSlider.Value;await RunAsync(()=>controller.SetSpeedAsync(level),"Applying manual speed…");}
     private async void On_Click(object sender,RoutedEventArgs e)=>await RunAsync(()=>controller.SetModeAsync(true),"Selecting On mode…");
     private async void Off_Click(object sender,RoutedEventArgs e)=>await RunAsync(()=>controller.SetModeAsync(false),"Selecting Off mode…");
@@ -169,11 +174,12 @@ public partial class MainWindow : Window
     private void UpdateButtons()
     {
         bool live=controller.Connected;
-        foreach(var b in new[]{OnButton,OffButton,ApplyButton,RefreshButton})b.IsEnabled=live&&!busy;
-        SpeedSlider.IsEnabled=live&&!busy;ScanButton.IsEnabled=!busy&&!live;AddressBox.IsEnabled=!busy&&!live;
+        bool blockControls=busy&&!refreshing;
+        foreach(var b in new[]{OnButton,OffButton,ApplyButton,RefreshButton})b.IsEnabled=live&&!blockControls;
+        SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
         ScanButton.Visibility=live?Visibility.Collapsed:Visibility.Visible;
-        DisconnectButton.Visibility=live?Visibility.Visible:Visibility.Collapsed;DisconnectButton.IsEnabled=!busy;
-        DevicesList.IsEnabled=!busy;ConnectButton.IsEnabled=!busy && DevicesList.SelectedItem!=null;
+        DisconnectButton.Visibility=live?Visibility.Visible:Visibility.Collapsed;DisconnectButton.IsEnabled=!blockControls;
+        DevicesList.IsEnabled=!blockControls;ConnectButton.IsEnabled=!blockControls && DevicesList.SelectedItem!=null;
     }
     private void UpdateView()
     {

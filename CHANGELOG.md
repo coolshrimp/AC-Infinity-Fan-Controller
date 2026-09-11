@@ -1,5 +1,10 @@
 # Changes
 
+## 0.4.2
+
+- Status refreshes no longer dim buttons or interrupt slider interaction.
+- Commands clicked during a status read wait for it to finish; duplicate refreshes are skipped.
+
 ## 0.4.1
 
 - Preserved the updated user layout, removed its extra outer frame, and aligned header and footer controls.
