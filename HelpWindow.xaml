@@ -1,0 +1,8 @@
+<Window x:Class="ACInfinityDesktop.HelpWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Connection help" Width="500" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Foreground="#EEF3F8" FontFamily="Segoe UI" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" PreviewKeyDown="Window_KeyDown" Closing="Window_Closing">
+ <Window.Resources><ResourceDictionary Source="Theme.xaml"/></Window.Resources>
+<Border x:Name="PanelShell" Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" TextElement.Foreground="#EEF3F8" TextElement.FontFamily="Segoe UI">
+   <StackPanel><DockPanel Margin="0,0,0,10"><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close panel" AutomationProperties.Name="Close Connection help"/><TextBlock Text="Connection help" FontSize="18" VerticalAlignment="Center"/></DockPanel>
+<TextBlock Text="Keep the powered controller close to this PC. Disconnect the phone/Mac app first. The two fan connections share programming. VPD uses air temperature with no leaf offset. Use − to hide to the tray and × to quit. Drag the panel background to move it, even when pinned. This is an unofficial personal app." TextWrapping="Wrap" Foreground="#96A6B9" FontSize="11" Margin="0,10,0,0"/>
+   </StackPanel>
+  </Border>
+</Window>

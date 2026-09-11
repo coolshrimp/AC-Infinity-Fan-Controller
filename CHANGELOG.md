@@ -1,5 +1,12 @@
 # Changes
 
+## 0.4.0
+
+- Doubled fan rotation at every nonzero speed.
+- Split Bluetooth, Appearance, Stored Programs, and Help into independent designer-editable WPF windows and code-behind.
+- Shared Theme.xaml styles all forms; content-sized windows keep controls inside their panels.
+- Panels open beside the widget when space permits, with one settings window visible at a time.
+
 ## 0.3.3
 
 - Fan blades rotate proportionally to live output, stopping at zero, offline, or hidden.

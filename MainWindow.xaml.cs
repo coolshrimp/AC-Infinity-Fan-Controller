@@ -15,6 +15,21 @@ using Forms = System.Windows.Forms;
 namespace ACInfinityDesktop;
 public partial class MainWindow : Window
 {
+    private readonly AppearanceWindow appearanceWindow=new();
+    private readonly BluetoothWindow bluetoothWindow=new();
+    private readonly ProgramsWindow programsWindow=new();
+    private readonly HelpWindow helpWindow=new();
+    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow};
+    private TextBox AddressBox=>bluetoothWindow.AddressBox;
+    private ListBox DevicesList=>bluetoothWindow.DevicesList;
+    private Button ScanButton=>bluetoothWindow.ScanButton;
+    private Button ConnectButton=>bluetoothWindow.ConnectButton;
+    private Button DisconnectButton=>bluetoothWindow.DisconnectButton;
+    private CheckBox AutoConnectBox=>appearanceWindow.AutoConnectBox;
+    private ComboBox ThemeBox=>appearanceWindow.ThemeBox;
+    private ComboBox AccentBox=>appearanceWindow.AccentBox;
+    private Slider OpacitySlider=>appearanceWindow.OpacitySlider;
+    private TextBlock ProgramsText=>programsWindow.ProgramsText;
     private readonly BluetoothController controller=new();
     private readonly DispatcherTimer timer=new(){Interval=TimeSpan.FromSeconds(15)};
     private Forms.NotifyIcon? tray;
@@ -27,6 +42,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        foreach(var panel in Panels)panel.Resources=Resources;
+        ScanButton.Click+=Scan_Click;ConnectButton.Click+=Connect_Click;DisconnectButton.Click+=Disconnect_Click;
+        DevicesList.SelectionChanged+=Device_Selected;bluetoothWindow.WindowsBluetoothButton.Click+=WindowsBluetooth_Click;
+        AutoConnectBox.Click+=Appearance_Changed;ThemeBox.SelectionChanged+=Appearance_Changed;
+        AccentBox.SelectionChanged+=Appearance_Changed;OpacitySlider.ValueChanged+=Appearance_Changed;
+        bluetoothWindow.ConnectionStatusText.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding("Text"){Source=StatusText});
         prefs=smoke?new():Preferences.Read(preferences);
         AddressBox.Text=prefs.address;fahrenheit=prefs.unit=="F";
         AutoConnectBox.IsChecked=prefs.AutoConnect;
@@ -42,17 +63,24 @@ public partial class MainWindow : Window
     }
     private async void Window_Loaded(object sender,RoutedEventArgs e)
     {
+        foreach(var panel in Panels)panel.Owner=this;
         if(smoke){
             Pin_Click(this,new RoutedEventArgs());if(!Topmost)throw new InvalidOperationException("Pin failed");
             Pin_Click(this,new RoutedEventArgs());if(Topmost)throw new InvalidOperationException("Unpin failed");
-            Connection_Click(this,new RoutedEventArgs());if(!ConnectionPopup.IsOpen)throw new InvalidOperationException("Connection panel failed");
+            Connection_Click(this,new RoutedEventArgs());if(!bluetoothWindow.IsVisible)throw new InvalidOperationException("Connection panel failed");
             Connection_Click(this,new RoutedEventArgs());
             ThemeBox.SelectedIndex=2;AccentBox.SelectedIndex=1;OpacitySlider.Value=65;
             if(prefs.Theme!="Forest"||prefs.Accent!="#81E1B7"||prefs.Transparency!=65)throw new InvalidOperationException("Appearance failed");
             ThemeBox.SelectedIndex=0;AccentBox.SelectedIndex=0;OpacitySlider.Value=94;
             Tray_Click(this,new RoutedEventArgs());if(IsVisible)throw new InvalidOperationException("Tray hide failed");ShowWindow();
             if(Environment.GetCommandLineArgs().Contains("--settings"))Settings_Click(this,new RoutedEventArgs());
-            if(Environment.GetCommandLineArgs().Contains("--bluetooth"))Connection_Click(this,new RoutedEventArgs());
+            if(Environment.GetCommandLineArgs().Contains("--bluetooth"))
+            {
+                DevicesList.ItemsSource=new[]{new DiscoveredController(0xAABBCCDDEEFF,"Example Controller 67",-65,1)};
+                Connection_Click(this,new RoutedEventArgs());
+            }
+            if(Environment.GetCommandLineArgs().Contains("--programs"))Programs_Click(this,new RoutedEventArgs());
+            if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
             UpdateLayout();if(ActualWidth!=540||ActualHeight!=740)throw new InvalidOperationException("Popup resized the main widget");return;
         }
         using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/ui/icon.ico")).Stream;
@@ -69,6 +97,8 @@ public partial class MainWindow : Window
     public async Task QuitAsync()
     {
         if(quitting)return;ClosePopups();SavePreferences();quitting=true;timer.Stop();
+        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=true;
+        foreach(var panel in Panels)panel.Close();
         await controller.DisconnectAsync();
         if(tray!=null){tray.Visible=false;tray.ContextMenuStrip?.Dispose();tray.Icon?.Dispose();tray.Dispose();}
         Application.Current.Shutdown();
@@ -133,7 +163,7 @@ public partial class MainWindow : Window
     private async void On_Click(object sender,RoutedEventArgs e)=>await RunAsync(()=>controller.SetModeAsync(true),"Selecting On mode…");
     private async void Off_Click(object sender,RoutedEventArgs e)=>await RunAsync(()=>controller.SetModeAsync(false),"Selecting Off mode…");
     private void Unit_Click(object sender,RoutedEventArgs e){fahrenheit=!fahrenheit;SavePreferences();UpdateView();}
-    private void Pin_Click(object sender,RoutedEventArgs e){Topmost=!Topmost;ApplyAppearance();SavePreferences();}
+    private void Pin_Click(object sender,RoutedEventArgs e){Topmost=!Topmost;foreach(var panel in Panels)panel.Topmost=Topmost;ApplyAppearance();SavePreferences();}
     private void Speed_Changed(object sender,RoutedPropertyChangedEventArgs<double> e){if(SpeedValue!=null)SpeedValue.Text=((int)e.NewValue).ToString();}
     private void UpdateButtons()
     {
@@ -171,32 +201,32 @@ public partial class MainWindow : Window
         if(speed==0)return;
         FanRotation.BeginAnimation(RotateTransform.AngleProperty,new System.Windows.Media.Animation.DoubleAnimation
         {
-            From=angle,To=angle+360,Duration=TimeSpan.FromSeconds(10d/speed),
+            From=angle,To=angle+360,Duration=TimeSpan.FromSeconds(5d/speed),
             RepeatBehavior=System.Windows.Media.Animation.RepeatBehavior.Forever
         });
     }
     private void Connection_Click(object sender,RoutedEventArgs e)
     {
-        TogglePopup(ConnectionPopup);
         if(DevicesList.Items.Count>0){DevicesList.Visibility=Visibility.Visible;ConnectButton.Visibility=Visibility.Visible;}
+        TogglePanel(bluetoothWindow);
     }
-    private void Settings_Click(object sender,RoutedEventArgs e)=>TogglePopup(SettingsPopup);
-    private void Programs_Click(object sender,RoutedEventArgs e)=>TogglePopup(ProgramsPopup);
-    private void Help_Click(object sender,RoutedEventArgs e)=>TogglePopup(HelpPopup);
-    private void ClosePopups(){foreach(var popup in new[]{ConnectionPopup,SettingsPopup,ProgramsPopup,HelpPopup})popup.IsOpen=false;}
-    private void TogglePopup(System.Windows.Controls.Primitives.Popup popup)
+    private void Settings_Click(object sender,RoutedEventArgs e)=>TogglePanel(appearanceWindow);
+    private void Programs_Click(object sender,RoutedEventArgs e)=>TogglePanel(programsWindow);
+    private void Help_Click(object sender,RoutedEventArgs e)=>TogglePanel(helpWindow);
+    private void ClosePopups(){foreach(var panel in Panels)panel.Hide();}
+    private void TogglePanel(Window panel)
     {
-        bool open=!popup.IsOpen;ClosePopups();popup.IsOpen=open;
+        bool open=!panel.IsVisible;ClosePopups();if(!open)return;
+        panel.Topmost=Topmost;panel.Show();panel.UpdateLayout();
+        // Prefer the space beside the widget; clamp within this monitor's work area.
+        var screen=Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle).WorkingArea;
+        var source=PresentationSource.FromVisual(this);var transform=source?.CompositionTarget?.TransformFromDevice??Matrix.Identity;
+        var start=transform.Transform(new Point(screen.Left,screen.Top));var end=transform.Transform(new Point(screen.Right,screen.Bottom));
+        double x=Left+ActualWidth+12;if(x+panel.ActualWidth>end.X)x=Left-panel.ActualWidth-12;
+        panel.Left=Math.Clamp(x,start.X,Math.Max(start.X,end.X-panel.ActualWidth));
+        panel.Top=Math.Clamp(Top,start.Y,Math.Max(start.Y,end.Y-panel.ActualHeight));panel.Activate();
     }
-    private void Popup_Close(object sender,RoutedEventArgs e)=>ClosePopups();
-    private void Popup_KeyDown(object sender,System.Windows.Input.KeyEventArgs e)
-    {if(e.Key==System.Windows.Input.Key.Escape){ClosePopups();e.Handled=true;}}
-    private void Popup_Opened(object sender,EventArgs e)
-    {
-        if(sender is System.Windows.Controls.Primitives.Popup popup && popup.Child is FrameworkElement child)
-            child.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
-    }
-    internal FrameworkElement SmokeSurface=>SettingsPopup.IsOpen?(FrameworkElement)SettingsPopup.Child:ConnectionPopup.IsOpen?(FrameworkElement)ConnectionPopup.Child:this;
+    internal FrameworkElement SmokeSurface=>Panels.FirstOrDefault(p=>p.IsVisible)??(FrameworkElement)this;
     private void Tray_Click(object sender,RoutedEventArgs e){ClosePopups();SavePreferences();Hide();}
     private async void Close_Click(object sender,RoutedEventArgs e)=>await QuitAsync();
     private void WindowsBluetooth_Click(object sender,RoutedEventArgs e)
