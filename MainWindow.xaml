@@ -23,7 +23,7 @@
   <Border CornerRadius="18" Background="{DynamicResource CardBrush}" BorderBrush="#303846" BorderThickness="1"><StackPanel>
    <Border Background="{DynamicResource HeaderBrush}" CornerRadius="18,18,0,0" Padding="18"><DockPanel>
     <Button DockPanel.Dock="Right" Click="Connection_Click" ToolTip="Bluetooth connection settings" AutomationProperties.Name="Bluetooth connection settings" Padding="7,4" VerticalAlignment="Center"><TextBlock x:Name="ConnectionBadge" Text="● Offline"/></Button>
-    <Image Source="ui/icon.png" Width="36" Height="36" Margin="0,0,12,0" DockPanel.Dock="Left"/>
+    <Image Source="ui/icon.png" Width="36" Height="36" Margin="0,0,12,0" DockPanel.Dock="Left" RenderTransformOrigin="0.5,0.5"><Image.RenderTransform><RotateTransform x:Name="FanRotation"/></Image.RenderTransform></Image>
     <StackPanel><TextBlock Text="CLOUDLINE T6" FontSize="17"/><TextBlock Text="Controller 67 · Shared fan control" Foreground="#96A6B9" FontSize="11" Margin="0,4,0,0"/></StackPanel>
    </DockPanel></Border>
    <UniformGrid Columns="3" Margin="18,24,10,18">

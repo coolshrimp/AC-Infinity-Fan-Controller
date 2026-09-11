@@ -1,5 +1,10 @@
 # Changes
 
+## 0.3.3
+
+- Fan blades rotate proportionally to live output, stopping at zero, offline, or hidden.
+- Speed changes preserve blade position; the slider alone does not change the animation.
+
 ## 0.3.2
 
 - Bluetooth and appearance settings open as styled floating popups, without expanding the widget.

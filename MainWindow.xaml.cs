@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer timer=new(){Interval=TimeSpan.FromSeconds(15)};
     private Forms.NotifyIcon? tray;
     private bool busy, quitting, fahrenheit, initialized;
+    private int animatedFanSpeed=-1;
     private readonly bool smoke=Environment.GetCommandLineArgs().Contains("--smoke");
     private Preferences prefs=new();
     private readonly ReconnectPolicy reconnect=new();
@@ -35,6 +36,7 @@ public partial class MainWindow : Window
         if(prefs.Left is double x && prefs.Top is double y && double.IsFinite(x)&&double.IsFinite(y))
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
         initialized=true;ApplyAppearance();
+        IsVisibleChanged+=(_,_)=>UpdateFanAnimation(controller.Connected?controller.State.Output:null);
         timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true);else {UpdateView();await AutoConnectAsync();}};
         UpdateView();
     }
@@ -150,11 +152,28 @@ public partial class MainWindow : Window
         TemperatureText.Text=live&&s.TemperatureC is double t?(fahrenheit?t*1.8+32:t).ToString("0.0"):"—";
         HumidityText.Text=live&&s.Humidity is double h?h.ToString("0.0"):"—";
         VpdText.Text=live&&s.TemperatureC is double c&&s.Humidity is double rh?(0.6108*Math.Exp(17.27*c/(c+237.3))*(1-rh/100)).ToString("0.00"):"—";
+        UpdateFanAnimation(live?s.Output:null);
         OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName:"Not connected";
         UpdatedText.Text=live?$"Live read {s.Updated:HH:mm:ss}":"No live readings";
         PresetText.Text=live?$"Saved On: {s.On} · Off: {s.Off}. Manual controls replace the active mode. Off mode uses that saved level.":"Manual controls replace the active mode. Off mode uses the stored minimum speed.";
         ProgramsText.Text=live?DescribePrograms(s.Settings):"Connect to read stored timer, cycle, Auto, and schedule settings.";
         UpdateButtons();
+    }
+    private void UpdateFanAnimation(int? output)
+    {
+        int speed=IsVisible&&output is >=0 and <=10?output.Value:0;
+        if(speed==animatedFanSpeed)return;
+        animatedFanSpeed=speed;
+        // Preserve the current blade position when changing speed or stopping.
+        double angle=FanRotation.Angle%360;
+        FanRotation.BeginAnimation(RotateTransform.AngleProperty,null);
+        FanRotation.Angle=angle;
+        if(speed==0)return;
+        FanRotation.BeginAnimation(RotateTransform.AngleProperty,new System.Windows.Media.Animation.DoubleAnimation
+        {
+            From=angle,To=angle+360,Duration=TimeSpan.FromSeconds(10d/speed),
+            RepeatBehavior=System.Windows.Media.Animation.RepeatBehavior.Forever
+        });
     }
     private void Connection_Click(object sender,RoutedEventArgs e)
     {
