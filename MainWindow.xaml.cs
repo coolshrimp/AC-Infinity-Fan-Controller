@@ -60,7 +60,7 @@ public partial class MainWindow : Window
         tray.ContextMenuStrip=menu;tray.DoubleClick+=(_,_)=>Dispatcher.Invoke(ShowWindow);
         timer.Start();await AutoConnectAsync();
     }
-    private void ShowWindow(){Show();WindowState=WindowState.Normal;Activate();}
+    internal void ShowWindow(){Show();WindowState=WindowState.Normal;Activate();}
     private async void Window_Closing(object? sender,CancelEventArgs e){if(!quitting){e.Cancel=true;await QuitAsync();}}
     public async Task QuitAsync()
     {

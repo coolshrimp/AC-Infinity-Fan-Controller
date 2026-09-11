@@ -36,6 +36,17 @@ internal static class ProtocolChecks
             var saved=Preferences.Read(path);Check(saved.Pinned&&saved.Transparency==65&&saved.Theme=="Forest"&&!saved.AutoConnect);
             File.WriteAllText(path,"broken");Check(Preferences.Read(path).AutoConnect);
         } finally {File.Delete(path);Directory.Delete(dir);}
+        var testId=Guid.NewGuid();
+        using(var owner=new SingleInstance("ACInfinityDesktop.Test."+testId))
+        using(var activated=new System.Threading.ManualResetEventSlim())
+        {
+            Check(owner.IsPrimary);
+            // Signal before registering the listener, covering simultaneous startup.
+            using var child=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!,"--instance-client "+testId){UseShellExecute=false,CreateNoWindow=true});
+            Check(child!=null && child.WaitForExit(10000) && child.ExitCode==0);
+            owner.Listen(()=>activated.Set());Check(activated.Wait(5000));
+        }
+        using(var replacement=new SingleInstance("ACInfinityDesktop.Test."+testId))Check(replacement.IsPrimary);
         return new {passed,framework="native .NET",hardwareWrites=false};
     }
 }

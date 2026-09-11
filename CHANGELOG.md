@@ -1,5 +1,10 @@
 # Changes
 
+## 0.3.1
+
+- Repeated launches restore the existing window, including from the tray, and exit silently.
+- Cross-process checks cover duplicate rejection, early activation delivery, and lock release.
+
 ## 0.3.0
 
 - Frameless draggable widget with internal pin, settings, minimize-to-tray, and quit controls.

@@ -9,10 +9,15 @@ using System.Windows;
 namespace ACInfinityDesktop;
 public partial class App : Application
 {
-    private Mutex? instance;
+    private SingleInstance? instance;
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Length==2 && e.Args[0]=="--instance-client" && Guid.TryParse(e.Args[1],out var testId))
+        {
+            using var client=new SingleInstance("ACInfinityDesktop.Test."+testId);
+            Shutdown(client.IsPrimary?1:0);return;
+        }
         if (e.Args.Contains("--self-test"))
         {
             try { File.WriteAllText(GetOutput(e.Args), JsonSerializer.Serialize(ProtocolChecks.Run(), new JsonSerializerOptions {WriteIndented=true})); Shutdown(0); }
@@ -40,10 +45,14 @@ public partial class App : Application
         bool smoke=e.Args.Contains("--smoke");
         if (!smoke)
         {
-            instance=new Mutex(true,"Local\\ACInfinityDesktop.Native",out bool first);
-            if(!first){MessageBox.Show("AC Infinity Desktop is already running. Open it from the system tray.");Shutdown();return;}
+            instance=new SingleInstance();
+            if(!instance.IsPrimary){Shutdown();return;}
         }
         var window = new MainWindow(); MainWindow=window; window.Show();
+        instance?.Listen(()=>Dispatcher.BeginInvoke(new Action(()=>
+        {
+            if(!Dispatcher.HasShutdownStarted)window.ShowWindow();
+        })));
         if(smoke)
         {
             await Task.Delay(800);
