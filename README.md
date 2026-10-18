@@ -1,107 +1,90 @@
 # AC Infinity Desktop
 
-Created by: [Coolshrimp Mods](https://coolshrimpmodz.com/)
+A compact Windows Bluetooth widget for **AC Infinity Controller 67 (CTR67A)**, made by [Coolshrimp Modz](https://coolshrimpmodz.com/).
 
-A compact Windows Bluetooth widget for AC Infinity **Controller 67 (CTR67A)** and its shared fan output. Native C# / WPF, with editable XAML for the UI Maker extension in VS Code. Unofficial; not affiliated with AC Infinity.
+Keep fan controls, temperature, humidity, and calculated VPD on your desktop. Connect several Bluetooth controllers at once, each in its own widget with independent controls and sensor history.
 
-## Run
+Unofficial software; not affiliated with or endorsed by AC Infinity.
 
-Open `Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe`. Distribute this one file. The .NET runtime is bundled; no Python, Node, Electron, or separate .NET installation is needed. Requires Windows 10 version 2004 or newer / Windows 11, x64, and a working Bluetooth adapter. Native runtime components extract automatically on first launch. The executable is unsigned.
+## Screenshots
 
-Quit an older running copy using its tray menu before opening this version. Close other phone/Mac controller connections so Bluetooth is available.
+Captured from a live Controller 67 connection. Device addresses and private diagnostics are excluded.
 
-## Widget views
+| Readings | Device status |
+| --- | --- |
+| ![Live temperature, humidity and fan controls](docs/screenshots/readings.png) | ![Live controller status and fan controls](docs/screenshots/device-status.png) |
 
-The compact card has three saved views, inspired by the AC Infinity Mac widgets:
+| Sensor history | Appearance |
+| --- | --- |
+| ![Local sensor history](docs/screenshots/chart.png) | ![Widget appearance settings](docs/screenshots/appearance.png) |
 
-- **Readings**: temperature, humidity, calculated VPD, and a compact fan card. Hover the readings for explanations, including the meaning of VPD.
-- **Device status**: the same readings and fan card, with active mode shown above its controls.
-- **Chart**: separate temperature, humidity, and VPD plots with 1h / 6h / 24h ranges. Each series has its own labeled scale; gaps longer than 60 seconds are not connected.
+## Get started
 
-The heading defaults to **AC Infinity**. In Bluetooth settings, **Name on widget** offers suggestions (CLOUDLINE T4/T6/T8/T10/T12, Intake fan, Exhaust fan, Grow tent, and Workshop fan) and accepts any custom name, saved separately for each controller on this PC. Blank restores the default. Technical advertised names and controller identification stay in Bluetooth settings. Existing saved Bluetooth names are not reused as the widget heading.
+1. Open this repository's **Releases** page and download the Windows x64 release asset.
+2. Run the downloaded application. The .NET runtime is bundled; no separate runtime installation is required.
+3. Keep the powered controller nearby and close other apps holding its Bluetooth connection.
+4. The widget scans and connects automatically when exactly one compatible controller is available. Click the device name or connection badge to choose a controller manually.
 
-Click the device name to choose a controller or manage Bluetooth. The header shows the last successful read and connection status. A single fan card below the readings places current speed above its On/Off toggle and slider in every view. The thumb follows reported output when idle; dragging selects a target and releasing applies it without confirmation. The colored fill and number always represent the latest reported output, independently of the target. Stored programs are available from the three-dot button in Device status. The widget view and chart range are remembered across launches.
+Requires Windows 10 version 2004 or newer, or Windows 11, x64, and a working Bluetooth adapter. The application is unsigned. Native runtime components extract automatically on first launch.
 
-History is collected by this PC while connected, retained for up to 24 hours / 6,000 samples per controller, and saved about once per minute and on exit under `%LOCALAPPDATA%\ACInfinityDesktop\history`. It does not download earlier readings from the device or cloud. Two readings are needed to draw a chart. Stored history remains visible while disconnected; live numbers clear so old readings are not presented as current. No AI score or independent port status is synthesized for Controller 67.
+## Multiple controllers
 
-## Connect and use
+In the Bluetooth panel, select **Add another controller...** to open another widget. Each widget owns its connection, fan slider, On/Off toggle, readings, chart, appearance, and tray icon. Controllers already assigned to a widget are excluded from other widgets' discovery. Opening the application again restores existing widgets instead of making duplicate connections.
 
-- Discovery looks for ACI / AC Infinity names or manufacturer advertisements, then connects briefly to verify the expected Bluetooth service and characteristics. For supported/unknown model types it also validates read-only Controller 67 settings and live replies. Verified devices appear with their detected addresses; unsupported advertised model types are labeled and cannot receive control commands. Candidates that do not respond are omitted and can be retried by rescanning. No fan modes or speeds are changed during verification.
-- At startup, the app looks for the last successfully connected controller. On first use it scans nearby devices and automatically connects if exactly one compatible controller is found.
-- Click the **connection status badge** to open the Bluetooth panel, scan, select among multiple controllers, disconnect, or open Windows Bluetooth settings. The optional address field starts blank: enter your own Bluetooth address if known, or leave it blank to scan and choose a detected controller. After connecting, the field shows the connected user’s detected MAC. Disconnect clears the entry field. The remembered connection is stored privately on each PC and is never bundled into the release.
-- Lost connections retry after increasing delays of 30, 60, then at most 120 seconds. Bluetooth operations also have their own timeouts. A remembered address keeps automatic reconnection directed at that controller.
-- **Disconnect** pauses automatic retries for the current session. Scan, manually connect, re-enable automatic connection in settings, or restart to resume. Disabling automatic connection still allows manual discovery and connection.
-- The fan icon rotates according to the reported output: 0 stops, 5 turns once per second, and 10 turns twice per second. Rotation stops when disconnected or hidden in the tray. This indicates relative speed, not measured motor RPM.
-- Automatic and manual status refreshes keep controls enabled and visually steady. A fan command clicked during a status read waits for that read to finish; Bluetooth requests remain serialized. Controls still disable while applying changes or when disconnected.
-- Live readings refresh every 10 seconds when stable. Manual commands and detected output changes switch to two-second reads. Two fresh replies at the target, or at least 10 seconds of unchanged output, return to the slower interval. An unresolved target expires after 90 seconds. Duplicate UI redraws do not count as new readings, and requests never overlap; slow Bluetooth replies can lengthen the effective interval. These are controller-reported levels, not measured RPM. Reconnection only reads settings and status; it does not set the fan speed or change its mode.
-- Releasing the slider at **1–10** selects manual On mode at that speed. Releasing at **0** selects the saved Off mode; it does not overwrite the saved minimum. The On/Off toggle also uses stored presets and shows Auto when an automatic mode is active. Off mode can still run the fan if the saved Off speed is nonzero. Arrow/Home/End/Page keys apply on key release. Programmatic updates never send speed commands, and unchanged releases do nothing.
-- Stored programs show Auto thresholds, timers, cycle durations, and daily schedule. Editing these programs is not implemented.
+Additional controllers with automatic connection enabled are remembered. On relaunch, the main widget appears first; additional widgets stay hidden while retrying and appear only after a verified connection. Offline controllers do not create empty duplicate windows. Closing one widget releases only that controller; the other widgets keep running. Give each controller a friendly name in Bluetooth settings to tell them apart.
 
-Only one normal instance runs per Windows session, even when launched from different folders. Opening the EXE again restores the existing window from the tray instead of creating another connection. Older versions still block duplicates but cannot respond to the new restore signal; quit them from the tray before upgrading.
+The two fan sockets on a Controller 67 **share its programming**. Separate widgets represent separate Bluetooth controllers, not individual fans attached to one Controller 67. Temperature and humidity come from each controller's reported sensor data; extra sensor channels are not invented.
 
-Bluetooth, appearance, the custom color picker, stored programs, and connection help each have their own WPF Window, XAML, and code-behind. They size vertically to their content and dock to the main widget, following it as it moves or changes view. Docking chooses a side, above, or below within the current monitor’s work area; if neither window can fit together, the panel is clamped on-screen. Close with × or Escape; minimizing to the tray hides them. Opening a different panel hides the previous one. Opening settings does not stretch or scroll the main widget.
+## Controls and views
 
-## Widget controls
+- **Readings:** temperature, humidity, calculated VPD, and fan controls.
+- **Device status:** readings plus the active controller mode and stored-program viewer.
+- **Chart:** a compact history overview with 1h, 6h, and 24h ranges. **History ↗** opens a separate, larger panel with temperature, humidity, VPD, sample counts, and first/latest timestamps. Saved readings can be reviewed while disconnected.
+- Release the speed slider at **1-10** to select manual On mode at that level. **0** selects the saved Off mode. The colored fill shows reported output while you choose a target.
+- The **On/Off** toggle selects stored presets. Off can still spin the fan when its saved minimum is above zero.
+- **Pin** keeps a widget and its panels on top. **Settings** changes colors, opacity, and temperature units. **Minus** hides that widget to its tray icon; **Close** quits that widget.
+- Stored Auto thresholds, timers, cycles, and schedules can be viewed. Editing stored programs is not implemented.
 
-- The **pushpin** toggles always on top for the widget and its panels; its angle indicates the pin state.
-- **⚙** opens saved preferences: automatic connection, Celsius/Fahrenheit, panel and accent preset dropdowns with color swatches, custom colors, and opacity. Custom color opens a matching picker with a saturation/brightness area, hue slider, preview swatch, and six-digit hex entry. Arrow keys work in the color area; Use color saves, while Cancel or Escape keeps the previous color. Both temperature switches update the display and chart together without writing controller settings. **Restore appearance defaults** resets colors and opacity without changing connection or pin settings.
-- **−** hides to the system tray. Double-click the tray icon or choose Show controller to restore.
-- **×** quits and releases Bluetooth. The tray menu also has Quit.
-- Drag any noninteractive panel area to move the widget, including when pinned. Controls retain their normal mouse behavior.
+Live readings normally refresh every 10 seconds, switching to two-second reads while output changes. Requests are serialized per controller. Reconnecting reads settings and status without changing the mode or speed. Disconnect pauses automatic retries for that widget until a manual reconnect, scan, or restart.
 
-Connection, temperature unit, pin state, appearance, and position are saved locally in `%LOCALAPPDATA%\ACInfinityDesktop\preferences.json`. Delete that file while the app is closed to reset preferences. No accounts, cloud service, or telemetry are used.
+## Privacy and local data
 
-## UI Maker / development
+No account, cloud service, or telemetry is used. Preferences and Bluetooth addresses remain under `%LOCALAPPDATA%\ACInfinityDesktop`. Additional widget settings live in its `controllers` subfolder. Sensor history is stored in the shared `history` subfolder, separately for each controller address.
 
-Open `ACInfinityDesktop.code-workspace` in VS Code (or open this project folder directly) to load the included UI Maker single-file/self-contained release settings. Select `ACInfinityDesktop.csproj` in UI Maker. Edit each form separately in its WPF designer: `MainWindow.xaml`, `BluetoothWindow.xaml`, `AppearanceWindow.xaml`, `ProgramsWindow.xaml`, `HelpWindow.xaml`, and `ColorPickerWindow.xaml`. `SensorChartView.xaml` is the reusable chart view. Shared colors and control styles live in `Theme.xaml`, including UI Maker’s `UimToggleSwitch` and `UimModernSlider` templates. These style standard WPF CheckBox and Slider controls and remain editable in UI Maker. All windows are explicitly included in the project and have their own `.xaml.cs` code-behind. Development requires the .NET 10 SDK.
+History is collected only while this PC is connected. It retains up to 24 hours or 6,000 samples per controller, and is saved about once per minute and on exit. It does not download earlier readings from the controller or cloud. Gaps longer than 60 seconds are not joined on charts. Disconnected widgets retain history while clearing live values.
+
+## Build and verify
+
+Install the .NET 10 SDK, then run:
 
 ```powershell
 dotnet build ACInfinityDesktop.csproj -c Release
 ./publish.ps1
+./verify.ps1
 ```
 
-The `SingleExe` publish profile produces a self-contained Windows x64 executable in `Releases/dotnet-0.6.4`. WPF trimming is disabled. Windows Forms provides the tray icon and monitor work-area lookup; the custom color picker is WPF.
+The publish profile creates one self-contained Windows x64 application under `Releases/dotnet-<version>`. WPF trimming is disabled. Generated binaries, private settings, and diagnostics are ignored by Git.
 
-If UI Maker reports NETSDK1176, its command has forced `--self-contained false`. Compression now turns off automatically for that mode, but the resulting executable requires the .NET Desktop Runtime. For the standalone release, use the included workspace settings or `./publish.ps1`. A parent workspace selecting this folder through UI Maker does not load this folder's `.vscode/settings.json`; open the supplied `.code-workspace` file to use the project settings.
+`verify.ps1` runs offline protocol/settings checks and eight window checks, including multiple-widget isolation, hidden offline restoration, independent window shutdown, and the separate history panel. Smoke checks use in-memory settings and never connect to Bluetooth. Diagnostic results remain under the ignored `diagnostics/verification` directory.
 
-## Verification
+The GitHub workflow builds and verifies pull requests and pushes to `main` or `master`. Pushing a version tag matching the project version, such as `v0.6.5`, runs the same checks and publishes a release containing one Windows executable. The workflow has read-only permissions during builds; release publishing receives repository-content write permission in a separate job. No personal access token is stored in the repository.
 
-The release passes 74 offline checks covering protocol frames, CRC, response matching, decoding, acknowledgments, input bounds, preferences, reconnect behavior, single-instance activation, device eligibility, history, docking placement, adaptive polling transitions, RGB/HSV conversion, and hex validation. Offline window checks exercise color/name preset selection, custom naming, custom-color acceptance, C/F synchronization, release-only slider submission, telemetry during editing, duplicate/unchanged releases, pin/unpin, a connection panel following the widget, appearance changes, and tray hide/restore before rendering a screenshot. The main widget is 450 logical pixels wide and sizes vertically to its selected view.
+For maintainers, `--capture-live --output <directory>` exports the four documentation views from a real connection, waits for a fresh sample, and exits. Capture mode blocks fan writes and leaves saved preferences and history unchanged. Close other copies before capturing.
 
-```powershell
-& ./Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe --self-test --output "$PWD/checks.json"
-& ./Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe --smoke --output "$PWD/window.png"
-& ./Releases/dotnet-0.6.4/AC-Infinity-Desktop.exe --smoke --settings --output "$PWD/settings.png"
-```
+For UI development, open `ACInfinityDesktop.code-workspace` in VS Code or the solution in Visual Studio. Each window has separate XAML and code-behind; shared styles live in `Theme.xaml`.
 
-Add `--bluetooth` to smoke mode to render the Bluetooth window; `--settings` renders the appearance window, and `--picker` renders the modern custom color picker.
+## Compatibility and testing limits
 
-For layout previews, `--smoke --readings`, `--smoke --chart`, and `--smoke --controls` render those views. Add `--demo` only to generate explicitly labeled simulated readings for visual checks; normal app launches never use this data.
+Control is restricted to verified Controller 67-compatible Bluetooth replies. Unsupported advertised models cannot receive commands. A compatible protocol without a known model advertisement does not confirm the exact controller model. Friendly fan names are user labels, not detected fan hardware.
 
-Smoke mode uses default in-memory preferences and does not connect to Bluetooth or save settings. Optional `--probe --address <Bluetooth MAC> --output <JSON path>` performs read-only live discovery and three status samples. Close other controller apps before using it.
+VPD is calculated from air temperature and humidity without a leaf-temperature offset. Wi-Fi cloud controllers and independent fan-port control are outside the supported scope.
 
-Native Bluetooth reads were verified on real Controller 67 hardware during development. This release's reconnection policy has offline coverage; a real radio dropout/recovery and physical drag interaction still need user verification. The release-to-set interaction and adaptive polling have offline coverage; physical slider input and sustained two-second reads still need testing with the controller. Motor response to manual writes has not been deliberately hardware-tested. Writes validate controller acknowledgments.
+Live readings have been checked on one physical Controller 67. Multiple-widget lifecycle and isolation have offline coverage; simultaneous connections to several physical controllers still require hardware testing. Motor response to speed/mode writes and real radio dropout recovery have not been deliberately verified in this review.
 
-## Scope and limitations
+When reporting an issue, include your Windows version, controller model, and reproduction steps. Redact Bluetooth addresses and other private diagnostic details.
 
-Fan controls support Controller 67-compatible verified responses. Other advertised model types may be identified through their AC Infinity GATT service but are listed as unsupported for control. New discovery verification has offline coverage; additional hardware/model verification remains necessary. The two fan connections share programming; the app does not discover individual attached fans. Controller 67 (CTR67A) identifies the controller, not the fan attached to it. The current Bluetooth replies do not supply the attached fan model; a friendly name is a user label, not detected hardware identity. An advertised type of 1 is mapped to Controller 67; a validated compatible protocol without that type is labeled as an unconfirmed exact model. VPD is calculated from air temperature and humidity without a leaf-temperature offset. This is not a Controller AI/Wi-Fi cloud client. Weak Bluetooth signal and another app holding the connection can prevent connection.
+## Source and license
 
-## Source layout and repository
+The application is native C# / WPF. `Native/BluetoothController.cs` handles BLE/GATT, `Native/Protocol.cs` validates controller packets, and `Native/SensorHistory.cs` maintains bounded local history.
 
-- `MainWindow.xaml` and code-behind: main widget and controller coordination
-- `BluetoothWindow.xaml`, `AppearanceWindow.xaml`, `ProgramsWindow.xaml`, `HelpWindow.xaml`: separate editable forms
-- `Theme.xaml`: shared designer-visible control styles and color-swatch templates
-- `ColorPickerWindow.xaml` / code-behind: custom HSV and hex picker
-- `Native/ColorChoices.cs`: preset colors, suggested fan names, and color conversion
-- `Native/PanelDocking.cs`: monitor-aware placement for attached forms
-- `Native/SpeedPolling.cs`: fresh-sample settling and adaptive refresh timing
-- `SensorChartView.xaml` / code-behind: local sensor plots
-- `Native/SensorHistory.cs`: bounded per-controller history
-- `Native/BluetoothController.cs`: Windows BLE/GATT connection and requests
-- `Native/Protocol.cs`: frame validation and Controller 67 data
-- `Native/Preferences.cs`: local settings and reconnect policy
-- `Native/ProtocolChecks.cs`: offline checks
-- `Properties/PublishProfiles/SingleExe.pubxml`: release profile
-- `vendor/`: retained upstream protocol license notices
-
-The local Git repository tracks the native project, artwork, and documentation. Generated binaries, caches, diagnostic captures, and device addresses are excluded. Obsolete Electron/Python prototypes and superseded releases have been removed from the working folder. Local protocol findings and current verification captures remain under diagnostics; the current executable is under Releases/dotnet-0.6.4. No remote is configured and nothing is published. Before publishing externally, choose a license for the new application code and retain the included third-party notices. Report issues with Windows version, controller model, and reproduction steps; redact Bluetooth addresses and personal diagnostic data.
+Copyright 2026 Coolshrimp Modz. All rights reserved for the application code; see [LICENSE](LICENSE). Upstream protocol notices and their separate license terms are retained in [vendor/THIRD_PARTY_NOTICES.md](vendor/THIRD_PARTY_NOTICES.md) and [vendor/Viss-LICENSE.txt](vendor/Viss-LICENSE.txt).

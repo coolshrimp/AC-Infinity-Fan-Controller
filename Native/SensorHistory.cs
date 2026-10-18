@@ -20,7 +20,8 @@ internal sealed class SensorHistory
         try{samples.AddRange((JsonSerializer.Deserialize<List<SensorSample>>(File.ReadAllText(file))??new()).Where(Valid).OrderBy(s=>s.Time).DistinctBy(s=>s.Time));}catch{}
         Prune(DateTimeOffset.Now);
     }
-    private static bool Valid(SensorSample s)=>double.IsFinite(s.TemperatureC)&&s.TemperatureC is >=-40 and <=100&&double.IsFinite(s.Humidity)&&s.Humidity is >=0 and <=100;
+    // A damaged JSON array can contain null entries; retain its remaining valid samples.
+    private static bool Valid(SensorSample? s)=>s is not null&&double.IsFinite(s.TemperatureC)&&s.TemperatureC is >=-40 and <=100&&double.IsFinite(s.Humidity)&&s.Humidity is >=0 and <=100;
     public bool Add(SensorSample sample)
     {
         if(!Valid(sample)||samples.Count>0&&sample.Time<=samples[^1].Time)return false;

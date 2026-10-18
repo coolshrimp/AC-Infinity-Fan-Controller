@@ -31,7 +31,26 @@ public sealed class Preferences
     public double Transparency {get;set;}=94;
     public double? Left {get;set;}
     public double? Top {get;set;}
-    public static Preferences Read(string path){try{return JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path))??new();}catch{return new();}}
+    public static Preferences Read(string path)
+    {
+        try
+        {
+            var value = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path)) ?? new();
+            // Older or hand-edited settings may contain explicit JSON nulls.
+            value.address ??= "";
+            value.DeviceName ??= "Choose device";
+            value.DisplayNames ??= new();
+            value.WidgetView = value.WidgetView is "Readings" or "Chart" ? value.WidgetView : "Status";
+            value.HistoryHours = value.HistoryHours is 1 or 6 or 24 ? value.HistoryHours : 6;
+            value.unit = value.unit == "F" ? "F" : "C";
+            value.Transparency = double.IsFinite(value.Transparency) ? Math.Clamp(value.Transparency,45,100) : 94;
+            return value;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return new();
+        }
+    }
     public void Save(string path){Directory.CreateDirectory(Path.GetDirectoryName(path)!);File.WriteAllText(path+".tmp",JsonSerializer.Serialize(this,new JsonSerializerOptions{WriteIndented=true}));File.Move(path+".tmp",path,true);}
 }
 internal sealed class ReconnectPolicy

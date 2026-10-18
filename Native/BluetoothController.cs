@@ -133,7 +133,12 @@ public sealed class BluetoothController
             RequireConnection();
             Protocol.ValidateAck(await SendAsync(3, payload), required);
             var presets = Protocol.Fields(await SendAsync(1, new byte[] {17,18}));
-            State.Off = presets[17][0]; State.On = presets[18][0];
+            // Acknowledging a write does not guarantee a complete subsequent read.
+            // Reject malformed presets before replacing either displayed value.
+            if (!presets.TryGetValue(17, out var off) || off.Length != 1 || off[0] > 10 ||
+                !presets.TryGetValue(18, out var on) || on.Length != 1 || on[0] > 10)
+                throw new InvalidDataException("Invalid Controller 67 speed presets.");
+            State.Off = off[0]; State.On = on[0];
             await ReadLiveCoreAsync();
         }
         catch { await DisconnectCoreAsync(); throw; }

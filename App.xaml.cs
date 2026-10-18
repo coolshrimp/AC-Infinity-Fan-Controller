@@ -10,6 +10,28 @@ namespace ACInfinityDesktop;
 public partial class App : Application
 {
     private SingleInstance? instance;
+    internal static void CaptureSurface(FrameworkElement surface,string path)
+    {
+        surface.UpdateLayout();
+        var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(surface.ActualWidth),(int)Math.Ceiling(surface.ActualHeight),96,96,System.Windows.Media.PixelFormats.Pbgra32);
+        bitmap.Render(surface);
+        var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using var output=File.Create(path);encoder.Save(output);
+    }
+    internal bool IsControllerOpen(string address,MainWindow except) => Windows.OfType<MainWindow>()
+        .Any(w=>w!=except&&!w.IsQuitting&&string.Equals(w.ControllerAddress,address,StringComparison.OrdinalIgnoreCase));
+
+    internal void OpenAdditionalController()
+    {
+        // Reuse an empty chooser instead of accumulating unconnected widgets.
+        var chooser=Windows.OfType<MainWindow>().FirstOrDefault(w=>!w.IsQuitting&&string.IsNullOrEmpty(w.ControllerAddress));
+        if(chooser!=null){chooser.ShowWindow();return;}
+        var widget=new MainWindow(null,true);
+        var anchor=Windows.OfType<MainWindow>().FirstOrDefault(w=>w!=widget&&!w.IsQuitting&&w.IsVisible);
+        if(anchor!=null){widget.Left=anchor.Left+40;widget.Top=anchor.Top+40;}
+        widget.Show();
+    }
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -49,18 +71,35 @@ public partial class App : Application
             if(!instance.IsPrimary){Shutdown();return;}
         }
         var window = new MainWindow(); MainWindow=window; window.Show();
+        if(!smoke&&!e.Args.Contains("--capture-live"))
+        {
+            var directory=Path.Combine(ACInfinityDesktop.MainWindow.DataDirectory,"controllers");
+            if(Directory.Exists(directory))
+                foreach(var path in Directory.EnumerateFiles(directory,"*.json"))
+                {
+                    var saved=Preferences.Read(path);
+                    if(!saved.AutoConnect||string.IsNullOrEmpty(saved.address)||Windows.OfType<MainWindow>().Any(w=>string.Equals(w.ControllerAddress,saved.address,StringComparison.OrdinalIgnoreCase)))continue;
+                    new MainWindow(path,true).RestoreWhenConnected();
+                }
+        }
         instance?.Listen(()=>Dispatcher.BeginInvoke(new Action(()=>
         {
-            if(!Dispatcher.HasShutdownStarted)window.ShowWindow();
+            if(!Dispatcher.HasShutdownStarted)
+                foreach(var widget in Windows.OfType<MainWindow>().Where(w=>!w.IsQuitting&&!w.RestorePending).ToArray())widget.ShowWindow();
         })));
         if(smoke)
         {
             await Task.Delay(800);
-            window.UpdateLayout();var surface=window.SmokeSurface;surface.UpdateLayout();
-            var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)surface.ActualWidth,(int)surface.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(surface);
-            var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-            using(var output=File.Create(GetOutput(e.Args))) encoder.Save(output);
+            if(e.Args.Contains("--multi-controller"))await window.CheckMultipleWidgetsAsync();
+            window.UpdateLayout();CaptureSurface(window.SmokeSurface,GetOutput(e.Args));
             await window.QuitAsync();
+        }
+        else if(e.Args.Contains("--capture-live"))
+        {
+            int exitCode=0;
+            try {await window.CaptureDocumentationAsync(GetOutput(e.Args));}
+            catch(Exception ex){Console.Error.WriteLine(ex.Message);exitCode=1;}
+            await window.QuitAsync();Environment.ExitCode=exitCode;
         }
     }
     private static string GetOutput(string[] args)

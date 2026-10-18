@@ -1,5 +1,16 @@
 # Changes
 
+## 0.6.5
+
+- Independent widgets for multiple Bluetooth controllers, with separate controls, readings, history, appearance, and tray icons.
+- Restore additional controllers quietly in the background; show their widgets only after connection and prevent duplicate connections.
+- Closing one controller widget leaves the others running.
+- Separate History panel with larger plots, range selection, sample counts, and timestamps; saved data resumes after reopening.
+- Normalize malformed saved settings and validate speed presets returned after writes.
+- Preserve valid history samples when a saved array contains null entries.
+- Add version-tagged Windows single-file release workflow and repeatable offline/window verification.
+- Refresh public documentation, screenshots, license notice, and credential/binary ignore rules.
+
 ## 0.6.4
 
 - Panel and accent preset dropdowns with swatches, alongside unrestricted custom colors.
@@ -38,7 +49,7 @@
 - Device chooser and last-updated connection header; separate designer-editable Fan control window.
 - Up to 24 hours of local per-controller sensor history with 1h/6h/24h plots and clear data gaps.
 - Faster temporary reads after manual changes with reported-to-target speed feedback.
-- No synthesized AI score or unsupported port data.
+- No synthesized scores or unsupported port data.
 
 ## 0.5.1
 

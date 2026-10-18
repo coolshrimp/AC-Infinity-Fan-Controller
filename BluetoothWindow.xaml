@@ -17,6 +17,8 @@
     <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="3"><TextBlock Text="{Binding Name}"/><TextBlock Text="{Binding Mac}" FontFamily="Consolas" FontSize="11"/><TextBlock Text="{Binding Verification}" TextWrapping="Wrap" FontSize="10"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
   </ListBox>
   <Button x:Name="ConnectButton" ToolTip="Connect to the selected controller" Content="Connect selected controller" Visibility="Collapsed" IsEnabled="False"/>
+  <Button x:Name="AddControllerButton" Content="Add another controller…" ToolTip="Open an independent widget with its own fan controls and sensor history"/>
+  <TextBlock Text="Each Bluetooth controller has its own widget. Fans plugged into one Controller 67 share its controls." TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,8"/>
   <Button x:Name="WindowsBluetoothButton" ToolTip="Open Windows Bluetooth settings" Content="Open Windows Bluetooth settings ↗" HorizontalAlignment="Left" Padding="8,4"/>
   </StackPanel>
 <TextBlock x:Name="ConnectionStatusText" Text="Ready to connect." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,12,0,0"/>

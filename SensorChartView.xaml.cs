@@ -11,8 +11,10 @@ public partial class SensorChartView : UserControl
     private List<SensorSample> samples=new();
     private int hours=6;
     private bool fahrenheit;
-    private DateTimeOffset now;
+    private DateTimeOffset now=DateTimeOffset.Now;
     public SensorChartView(){InitializeComponent();SizeChanged+=(_,_)=>Draw();}
+    internal void SetPlotHeight(double height)
+    {TempCanvas.Height=HumidityCanvas.Height=VpdCanvas.Height=height;Draw();}
     public void Update(List<SensorSample> data,int range,bool useFahrenheit,DateTimeOffset end)
     {samples=data;hours=range;fahrenheit=useFahrenheit;now=end;Draw();}
     private void Draw()

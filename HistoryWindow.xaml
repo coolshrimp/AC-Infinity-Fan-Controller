@@ -1,0 +1,13 @@
+<Window x:Class="ACInfinityDesktop.HistoryWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:ACInfinityDesktop" Title="Sensor history" Width="640" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" PreviewKeyDown="Window_KeyDown" Closing="Window_Closing">
+ <Window.Resources><ResourceDictionary Source="Theme.xaml"/></Window.Resources>
+ <Border Padding="18" CornerRadius="18" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+  <StackPanel>
+   <DockPanel Margin="0,0,0,8"><Button Content="×" Click="Close_Click" DockPanel.Dock="Right" Padding="8,3" ToolTip="Close history" AutomationProperties.Name="Close History"/><TextBlock Text="Sensor history" FontSize="18" VerticalAlignment="Center"/></DockPanel>
+   <TextBlock x:Name="DeviceText" FontSize="13" Foreground="{DynamicResource AccentBrush}"/>
+   <TextBlock Text="Saved on this PC and continued when this controller reconnects. Up to 24 hours or 6,000 samples are retained." TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,10"/>
+   <StackPanel Orientation="Horizontal"><Button x:Name="HourButton" Content="1h" Tag="1" Padding="12,4"/><Button x:Name="SixHourButton" Content="6h" Tag="6" Padding="12,4"/><Button x:Name="DayButton" Content="24h" Tag="24" Padding="12,4"/></StackPanel>
+   <local:SensorChartView x:Name="HistoryChart"/>
+   <TextBlock x:Name="HistorySummary" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,14,0,0"/>
+  </StackPanel>
+ </Border>
+</Window>

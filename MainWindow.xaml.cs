@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private readonly BluetoothWindow bluetoothWindow=new();
     private readonly ProgramsWindow programsWindow=new();
     private readonly HelpWindow helpWindow=new();
+    private readonly HistoryWindow historyWindow=new();
     private readonly SensorHistory history=new();
     private DateTimeOffset historySaved;
     private readonly SpeedPolling speedPolling=new();
@@ -30,7 +31,7 @@ public partial class MainWindow : Window
     private bool loadingDisplayName;
     private readonly List<int> smokeSpeedCommands=new();
     private string historyAddress="";
-    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow,colorPicker};
+    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow,colorPicker,historyWindow};
     private TextBox AddressBox=>bluetoothWindow.AddressBox;
     private ListBox DevicesList=>bluetoothWindow.DevicesList;
     private Button ScanButton=>bluetoothWindow.ScanButton;
@@ -46,11 +47,22 @@ public partial class MainWindow : Window
     private readonly System.Threading.SemaphoreSlim operationGate=new(1,1);
     private int animatedFanSpeed=-1;
     private readonly bool smoke=Environment.GetCommandLineArgs().Contains("--smoke");
+    private readonly bool captureLive=Environment.GetCommandLineArgs().Contains("--capture-live");
     private Preferences prefs=new();
     private readonly ReconnectPolicy reconnect=new();
-    private readonly string preferences=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"ACInfinityDesktop","preferences.json");
-    public MainWindow()
+    internal static string DataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"ACInfinityDesktop");
+    private string preferences;
+    private readonly bool additional;
+    private string connectingAddress="";
+    private bool restorePending;
+    internal bool IsQuitting=>quitting;
+    internal bool RestorePending=>restorePending;
+    internal string ControllerAddress=>connectingAddress.Length>0?connectingAddress:prefs.address;
+    public MainWindow() : this(null,false) { }
+    internal MainWindow(string? settingsPath,bool additional)
     {
+        this.additional=additional;
+        preferences=settingsPath??Path.Combine(DataDirectory,"preferences.json");
         InitializeComponent();
         foreach(var panel in Panels){panel.Resources=Resources;panel.SizeChanged+=(_,_)=>UpdateDockedPanels();}
         LocationChanged+=(_,_)=>UpdateDockedPanels();SizeChanged+=(_,_)=>UpdateDockedPanels();
@@ -62,6 +74,7 @@ public partial class MainWindow : Window
         SpeedSlider.KeyUp+=async(_,e)=>{if(IsSpeedKey(e.Key))await ReleaseSpeedAsync();};
         SpeedSlider.LostKeyboardFocus+=async(_,_)=>await ReleaseSpeedAsync();
         ScanButton.Click+=Scan_Click;ConnectButton.Click+=Connect_Click;DisconnectButton.Click+=Disconnect_Click;
+        bluetoothWindow.AddControllerButton.Click+=(_,_)=>{if(!captureLive)((App)Application.Current).OpenAdditionalController();};
         DevicesList.SelectionChanged+=Device_Selected;bluetoothWindow.WindowsBluetoothButton.Click+=WindowsBluetooth_Click;
         AutoConnectBox.Click+=Appearance_Changed;OpacitySlider.ValueChanged+=Appearance_Changed;
         appearanceWindow.PanelColorButton.Click+=(_,_)=>PickColor(false);
@@ -73,15 +86,16 @@ public partial class MainWindow : Window
         appearanceWindow.PanelPresetBox.SelectionChanged+=(_,_)=>PresetSelected(false);
         appearanceWindow.AccentPresetBox.SelectionChanged+=(_,_)=>PresetSelected(true);
         appearanceWindow.FahrenheitBox.Click+=(_,_)=>{fahrenheit=appearanceWindow.FahrenheitBox.IsChecked==true;SavePreferences();UpdateView();};
+        foreach(var range in new[]{historyWindow.HourButton,historyWindow.SixHourButton,historyWindow.DayButton})range.Click+=Range_Click;
         colorPicker.Finished+=color=>{if(color.HasValue){string hex=$"#{color.Value.R:X2}{color.Value.G:X2}{color.Value.B:X2}";if(editingAccent)prefs.Accent=hex;else prefs.PanelColor=hex;SavePreferences();}ApplyAppearance();TogglePanel(appearanceWindow);};
         bluetoothWindow.ConnectionStatusText.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding("Text"){Source=StatusText});
-        prefs=smoke?new():Preferences.Read(preferences);
+        prefs=smoke||additional&&settingsPath==null?new():Preferences.Read(preferences);
         AddressBox.Text="";fahrenheit=prefs.unit=="F";
         AutoConnectBox.IsChecked=prefs.AutoConnect;
         OpacitySlider.Value=Math.Clamp(prefs.Transparency,45,100);Topmost=prefs.Pinned;
         if(prefs.Left is double x && prefs.Top is double y && double.IsFinite(x)&&double.IsFinite(y))
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
-        historyAddress=prefs.address;history.SelectDevice(Path.GetDirectoryName(preferences)!,prefs.address,smoke);
+        historyAddress=prefs.address;history.SelectDevice(DataDirectory,prefs.address,smoke);
         initialized=true;UpdateDeviceIdentity();ApplyAppearance();ApplyWidgetView();
         IsVisibleChanged+=(_,_)=>UpdateFanAnimation(controller.Connected?controller.State.Output:null);
         timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true,true);else {UpdateView();await AutoConnectAsync();}};
@@ -130,6 +144,11 @@ public partial class MainWindow : Window
             colorPicker.HexBox.Text="#12AB34";colorPicker.UseButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             if(prefs.Accent!="#12AB34"||!appearanceWindow.IsVisible)throw new InvalidOperationException("Custom color failed");
             RestoreAppearance(this,new RoutedEventArgs());ClosePopups();
+            History_Click(this,new RoutedEventArgs());
+            if(!historyWindow.IsVisible||ActualWidth!=450)throw new InvalidOperationException("Separate history panel changed the main widget.");
+            historyWindow.DayButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if(prefs.HistoryHours!=24)throw new InvalidOperationException("History panel range did not update.");
+            ClosePopups();
             Tray_Click(this,new RoutedEventArgs());if(IsVisible)throw new InvalidOperationException("Tray hide failed");ShowWindow();
             if(Environment.GetCommandLineArgs().Contains("--picker"))PickColor(true);
             if(Environment.GetCommandLineArgs().Contains("--settings"))Settings_Click(this,new RoutedEventArgs());
@@ -140,6 +159,7 @@ public partial class MainWindow : Window
             }
             if(Environment.GetCommandLineArgs().Contains("--programs"))Programs_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
+            if(Environment.GetCommandLineArgs().Contains("--history"))History_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--transparent"))OpacitySlider.Value=45;
             if(Environment.GetCommandLineArgs().Contains("--light")){prefs.PanelColor="#F0E9D6";prefs.Accent="#CC3377";ApplyAppearance();Settings_Click(this,new RoutedEventArgs());}
             if(Environment.GetCommandLineArgs().Contains("--controls")){prefs.WidgetView="Status";ApplyWidgetView();}
@@ -156,6 +176,7 @@ public partial class MainWindow : Window
         using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/ui/icon.ico")).Stream;
         using var source=new System.Drawing.Icon(stream);
         tray=new Forms.NotifyIcon{Icon=(System.Drawing.Icon)source.Clone(),Text="AC Infinity Desktop · .NET",Visible=true};
+        UpdateWidgetCaption();
         var menu=new Forms.ContextMenuStrip();
         menu.Items.Add("Show controller",null,(_,_)=>Dispatcher.Invoke(ShowWindow));
         menu.Items.Add("Quit",null,async(_,_)=>await Dispatcher.InvokeAsync(QuitAsync).Task.Unwrap());
@@ -163,20 +184,59 @@ public partial class MainWindow : Window
         timer.Start();await AutoConnectAsync();
     }
     internal void ShowWindow(){Show();WindowState=WindowState.Normal;Activate();}
+    internal void RestoreWhenConnected()
+    {
+        // A remembered controller retries quietly: no empty window or tray icon.
+        restorePending=true;timer.Start();_ = AutoConnectAsync();
+    }
+    internal async Task CheckMultipleWidgetsAsync()
+    {
+        if(!smoke)throw new InvalidOperationException("Multiple-widget checks require smoke mode.");
+        var app=(App)Application.Current;
+        prefs.address="AA:BB:CC:DD:EE:FF";
+        app.OpenAdditionalController();
+        await Task.Delay(300);
+        var child=app.Windows.OfType<MainWindow>().Single(w=>w!=this);
+        app.OpenAdditionalController();
+        if(app.Windows.OfType<MainWindow>().Count()!=2)throw new InvalidOperationException("Empty controller chooser was duplicated.");
+        child.prefs.address="11:22:33:44:55:66";
+        child.prefs.Rename("Second controller");
+        child.fahrenheit=!fahrenheit;
+        if(!app.IsControllerOpen(prefs.address,child)||!app.IsControllerOpen(child.prefs.address,this)||
+            prefs.DisplayName()=="Second controller"||ReferenceEquals(history,child.history)||ReferenceEquals(controller,child.controller)||child.fahrenheit==fahrenheit)
+            throw new InvalidOperationException("Controller widgets must own independent connections and settings.");
+        await child.QuitAsync();
+        if(app.Windows.OfType<MainWindow>().Count(w=>!w.IsQuitting)!=1||!IsVisible)
+            throw new InvalidOperationException("Closing one controller closed the other widget.");
+        var pending=new MainWindow(null,true);pending.prefs.address="11:22:33:44:55:66";
+        pending.RestoreWhenConnected();
+        if(pending.IsVisible||!pending.RestorePending||pending.tray!=null)
+            throw new InvalidOperationException("An offline remembered controller created a visible widget.");
+        await pending.QuitAsync();
+        prefs.address="";UpdateDeviceIdentity();
+    }
     private async void Window_Closing(object? sender,CancelEventArgs e){if(!quitting){e.Cancel=true;await QuitAsync();}}
     public async Task QuitAsync()
     {
         if(quitting)return;ClosePopups();SavePreferences();quitting=true;timer.Stop();
-        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=colorPicker.AllowClose=true;
+        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=colorPicker.AllowClose=historyWindow.AllowClose=true;
         SaveHistory();
         foreach(var panel in Panels)panel.Close();
         await controller.DisconnectAsync();
         if(tray!=null){tray.Visible=false;tray.ContextMenuStrip?.Dispose();tray.Icon?.Dispose();tray.Dispose();}
-        Application.Current.Shutdown();
+        Close();
+        // Each controller owns its lifetime; quitting one must not stop the others.
+        var remaining=Application.Current.Windows.OfType<MainWindow>().Where(w=>!w.quitting).ToArray();
+        if(remaining.All(w=>w.restorePending))
+        {
+            // Quiet retries must not keep an otherwise closed application alive.
+            foreach(var pending in remaining)await pending.QuitAsync();
+            Application.Current.Shutdown();
+        }
     }
     private void SavePreferences()
     {
-        if(smoke||!initialized)return;
+        if(smoke||captureLive||!initialized||additional&&string.IsNullOrEmpty(prefs.address))return;
         prefs.unit=fahrenheit?"F":"C";prefs.Pinned=Topmost;prefs.Left=Left;prefs.Top=Top;
         try{prefs.Save(preferences);}catch(Exception ex){StatusText.Text="Could not save preferences: "+ex.Message;}
     }
@@ -185,6 +245,16 @@ public partial class MainWindow : Window
         if(smoke||busy||quitting||controller.Connected||!reconnect.Due(prefs.AutoConnect,DateTime.UtcNow))return;
         await RunAsync(async()=>
         {
+            if(captureLive)
+            {
+                // ConnectAsync already validates the service and live-data schema.
+                // Avoid opening a separate probe connection just for documentation.
+                var candidates=await BluetoothController.ScanAsync(prefs.address);
+                var compatible=candidates.Where(d=>d.Type is null or 1).ToList();
+                if(compatible.Count!=1)throw new IOException("Live capture needs exactly one compatible controller; select it in normal mode first.");
+                await ConnectTargetAsync(compatible[0]);
+                return;
+            }
             var found=await DiscoverVerifiedAsync(prefs.address);
             if(quitting)return;
             DevicesList.ItemsSource=found;
@@ -201,6 +271,9 @@ public partial class MainWindow : Window
         foreach(var candidate in candidates)
         {
             if(quitting)break;
+            // Never probe an address already reserved by another widget: probing
+            // could compete with that widget's active GATT session.
+            if(((App)Application.Current).IsControllerOpen(candidate.Mac,this))continue;
             StatusText.Text=$"Checking nearby controller {verified.Count+failed+1} of {candidates.Count}...";
             try
             {
@@ -223,22 +296,35 @@ public partial class MainWindow : Window
         bluetoothWindow.DisplayNameBox.Text=prefs.DisplayName()=="AC Infinity"?"":prefs.DisplayName();
         bluetoothWindow.BluetoothNameText.Text=selected?"Bluetooth name: "+prefs.DeviceName:"Bluetooth name: no controller selected";
         bluetoothWindow.ControllerModelText.Text=!selected?"Controller: not identified":prefs.ControllerType==1?"Controller: Controller 67 (CTR67A)":"Controller 67-compatible connection; exact model unconfirmed";
-        DeviceNameText.Text=prefs.DisplayName();loadingDisplayName=false;
+        DeviceNameText.Text=prefs.DisplayName();UpdateWidgetCaption();loadingDisplayName=false;
+    }
+    private void UpdateWidgetCaption()
+    {
+        Title="AC Infinity Desktop · "+prefs.DisplayName();
+        if(tray!=null){var label="AC Infinity · "+prefs.DisplayName();tray.Text=label[..Math.Min(63,label.Length)];}
     }
     private void DisplayName_Changed(object sender,TextChangedEventArgs e)
     {
         if(loadingDisplayName||!initialized)return;
-        prefs.Rename(e.OriginalSource is TextBox entry?entry.Text:bluetoothWindow.DisplayNameBox.Text);DeviceNameText.Text=prefs.DisplayName();DeviceNameText.ToolTip=DeviceNameText.Text;SavePreferences();
+        prefs.Rename(e.OriginalSource is TextBox entry?entry.Text:bluetoothWindow.DisplayNameBox.Text);DeviceNameText.Text=prefs.DisplayName();DeviceNameText.ToolTip=DeviceNameText.Text;UpdateWidgetCaption();SavePreferences();
     }
     private async Task ConnectTargetAsync(DiscoveredController target)
     {
-        await controller.ConnectAsync(target);
+        var app=(App)Application.Current;
+        if(app.IsControllerOpen(target.Mac,this))throw new InvalidOperationException("This controller already has an open widget.");
+        // Reserve before the first await so two windows cannot race to connect.
+        connectingAddress=target.Mac;
+        try {await controller.ConnectAsync(target);}
+        finally {connectingAddress="";}
         if(quitting){await controller.DisconnectAsync();return;}
-        if(historyAddress!=target.Mac){SaveHistory();history.SelectDevice(Path.GetDirectoryName(preferences)!,target.Mac,smoke);historyAddress=target.Mac;}
+        if(historyAddress!=target.Mac){SaveHistory();history.SelectDevice(DataDirectory,target.Mac,smoke);historyAddress=target.Mac;}
+        if(additional)preferences=Path.Combine(DataDirectory,"controllers",target.Mac.Replace(":","")+".json");
         prefs.DeviceName=target.Name;prefs.ControllerType=target.Type;prefs.address=target.Mac;UpdateDeviceIdentity();AddressBox.Text=target.Mac;reconnect.Reset();SavePreferences();
         DevicesList.Visibility=Visibility.Collapsed;ConnectButton.Visibility=Visibility.Collapsed;
+        Title="AC Infinity Desktop · "+prefs.DisplayName();
         SpeedSlider.Value=controller.State.Output??0;
         StatusText.Text="Connected. Readings refresh every 10 seconds, or 2 seconds while changing.";
+        if(restorePending){restorePending=false;Show();}
     }
     private async Task RunAsync(Func<Task> action,string message,bool background=false,bool isRefresh=false)
     {
@@ -283,6 +369,7 @@ public partial class MainWindow : Window
     {
         if(!editingSpeed)return;
         editingSpeed=false;int level=(int)SpeedSlider.Value;
+        if(captureLive){UpdateView();return;}
         if(level==(int)speedAtStart){UpdateView();return;}
         if(smoke){smokeSpeedCommands.Add(level);return;}
         if(!controller.Connected||submittingSpeed){UpdateView();return;}
@@ -298,6 +385,7 @@ public partial class MainWindow : Window
     }
     private async void OnOff_Click(object sender,RoutedEventArgs e)
     {
+        if(captureLive){UpdateView();return;}
         bool turnOn=OnOffToggle.IsChecked==true;
         OnOffToggle.IsChecked=controller.Connected&&controller.State.Mode==2;
         await RunAsync(async()=>{await controller.SetModeAsync(turnOn);FollowRamp(turnOn?controller.State.On:controller.State.Off);},"Updating fan mode...");
@@ -346,6 +434,7 @@ public partial class MainWindow : Window
     {prefs.WidgetView=(string)((Button)sender).Tag;ApplyWidgetView();SavePreferences();}
     private void Range_Click(object sender,RoutedEventArgs e)
     {prefs.HistoryHours=int.Parse((string)((Button)sender).Tag);UpdateCharts();SavePreferences();}
+    private void History_Click(object sender,RoutedEventArgs e){UpdateCharts();TogglePanel(historyWindow);}
     private void ApplyWidgetView()
     {
         if(prefs.WidgetView is not ("Readings" or "Status" or "Chart"))prefs.WidgetView="Status";
@@ -358,11 +447,39 @@ public partial class MainWindow : Window
     private void UpdateCharts()
     {
         if(prefs.HistoryHours is not (1 or 6 or 24))prefs.HistoryHours=6;
-        var now=DateTimeOffset.Now;HistoryChart.Update(history.Range(now,prefs.HistoryHours),prefs.HistoryHours,fahrenheit,now);
-        foreach(var button in new[]{HourButton,SixHourButton,DayButton})button.BorderBrush=int.Parse((string)button.Tag)==prefs.HistoryHours?(Brush)Resources["AccentBrush"]:Brushes.Transparent;
+        var now=DateTimeOffset.Now;var data=history.Range(now,prefs.HistoryHours);
+        HistoryChart.Update(data,prefs.HistoryHours,fahrenheit,now);
+        historyWindow.HistoryChart.Update(data,prefs.HistoryHours,fahrenheit,now);
+        historyWindow.DeviceText.Text=prefs.DisplayName();
+        historyWindow.HistorySummary.Text=data.Count==0?"No saved readings in this time range.":$"{data.Count:N0} samples in this range · "+(controller.Connected?"Recording live":"Saved history · disconnected")+$"\nFirst: {data[0].Time.ToLocalTime():MMM d, HH:mm:ss} · Latest: {data[^1].Time.ToLocalTime():MMM d, HH:mm:ss}";
+        foreach(var button in new[]{HourButton,SixHourButton,DayButton,historyWindow.HourButton,historyWindow.SixHourButton,historyWindow.DayButton})button.BorderBrush=int.Parse((string)button.Tag)==prefs.HistoryHours?(Brush)Resources["AccentBrush"]:Brushes.Transparent;
     }
     private void SaveHistory()
-    {if(smoke)return;try{history.Save();historySaved=DateTimeOffset.Now;}catch(Exception ex){StatusText.Text="Could not save local history: "+ex.Message;}}
+    {if(smoke||captureLive)return;try{history.Save();historySaved=DateTimeOffset.Now;}catch(Exception ex){StatusText.Text="Could not save local history: "+ex.Message;}}
+    internal async Task CaptureDocumentationAsync(string directory)
+    {
+        if(!captureLive)throw new InvalidOperationException("Live capture requires --capture-live.");
+        var deadline=DateTime.UtcNow.AddSeconds(180);
+        while(!controller.Connected&&DateTime.UtcNow<deadline)await Task.Delay(250);
+        if(!controller.Connected)throw new IOException("No live controller connected within three minutes. Close other controller apps and try again.");
+        // Wait for another real sample so the chart contains a measured interval.
+        await Task.Delay(11000);
+        if(!controller.Connected)throw new IOException("Controller disconnected before capture.");
+        Directory.CreateDirectory(directory);
+        prefs.Transparency=100;prefs.HistoryHours=1;ApplyAppearance();ClosePopups();
+        foreach(var view in new[]{("Readings","readings"),("Status","device-status")})
+        {
+            prefs.WidgetView=view.Item1;ApplyWidgetView();UpdateView();UpdateLayout();
+            await Task.Delay(150);
+            App.CaptureSurface(this,Path.Combine(directory,view.Item2+".png"));
+        }
+        TogglePanel(historyWindow);UpdateCharts();historyWindow.UpdateLayout();
+        await Task.Delay(150);
+        App.CaptureSurface(historyWindow,Path.Combine(directory,"chart.png"));
+        TogglePanel(appearanceWindow);appearanceWindow.UpdateLayout();
+        await Task.Delay(150);
+        App.CaptureSurface(appearanceWindow,Path.Combine(directory,"appearance.png"));
+    }
     private void UpdateFanAnimation(int? output)
     {
         int speed=IsVisible&&output is >=0 and <=10?output.Value:0;

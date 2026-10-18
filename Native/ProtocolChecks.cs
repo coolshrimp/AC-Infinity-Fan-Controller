@@ -41,6 +41,9 @@ internal static class ProtocolChecks
             renamed.address="aa:bb:cc:dd:ee:ff";Check(renamed.DisplayName()=="Workshop fan");
             renamed.Rename(" ");Check(renamed.DisplayName()=="AC Infinity");
             File.WriteAllText(path,"broken");Check(Preferences.Read(path).AutoConnect);
+            File.WriteAllText(path,"{\"address\":null,\"DisplayNames\":null,\"HistoryHours\":-1,\"WidgetView\":null,\"Transparency\":200}");
+            var repaired=Preferences.Read(path);
+            Check(repaired.address=="" && repaired.DisplayNames!=null && repaired.HistoryHours==6 && repaired.WidgetView=="Status" && repaired.Transparency==100);
         } finally {File.Delete(path);Directory.Delete(dir);}
         var testId=Guid.NewGuid();
         using(var owner=new SingleInstance("ACInfinityDesktop.Test."+testId))
@@ -68,6 +71,23 @@ internal static class ProtocolChecks
         Check(history.Range(time,1).Count==1 && history.Range(time,6).Count==2);
         Check(history.Range(time,1)[0].Vpd>1 && history.Range(time,1)[0].Vpd<2);
         history.SelectDevice(Path.GetTempPath(),"",true);Check(history.Range(time,24).Count==0);
+        var historyDir=Path.Combine(Path.GetTempPath(),"aci-history-"+Guid.NewGuid());
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(historyDir,"history"));
+            var sampleJson=System.Text.Json.JsonSerializer.Serialize(new SensorSample(time,22,45));
+            File.WriteAllText(Path.Combine(historyDir,"history","AABBCCDDEEFF.json"),"[null,"+sampleJson+"]");
+            history.SelectDevice(historyDir,"AA:BB:CC:DD:EE:FF",false);
+            Check(history.Range(time,1).Count==1);
+            history.SelectDevice(historyDir,"11:22:33:44:55:66",false);
+            Check(history.Range(time,1).Count==0); // Never mix two controllers' histories.
+            history.SelectDevice(historyDir,"AA:BB:CC:DD:EE:FF",false);
+            Check(history.Add(new SensorSample(time.AddSeconds(1),23,46)));history.Save();
+            var reopened=new SensorHistory();reopened.SelectDevice(historyDir,"AA:BB:CC:DD:EE:FF",false);
+            Check(reopened.Range(time.AddSeconds(1),1).Count==2);
+            Check(reopened.Add(new SensorSample(time.AddSeconds(2),24,47))&&reopened.Range(time.AddSeconds(2),1).Count==3);
+        }
+        finally {Directory.Delete(historyDir,true);}
         var work=new System.Windows.Rect(0,0,1920,1080);
         var size=new System.Windows.Size(500,400);
         Check(PanelDocking.Place(new System.Windows.Rect(100,100,450,300),size,work)==new System.Windows.Point(560,100));

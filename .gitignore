@@ -1,4 +1,16 @@
 node_modules/
+# Credentials and local device state must never enter source control.
+.env
+.env.*
+*.pfx
+*.p12
+*.pem
+*.key
+preferences.json
+history/
+*.exe
+*.dll
+*.pdb
 .venv/
 .npm-cache/
 .electron-cache/
