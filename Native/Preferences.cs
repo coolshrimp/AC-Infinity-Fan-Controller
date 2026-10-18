@@ -47,7 +47,7 @@ public sealed class Preferences
             if(value.AppSchedule.Validate().Length>0)value.AppSchedule=new();
             if(value.ScheduleRestore is {IsValid:false}){value.ScheduleRestore=null;value.AppSchedule.Enabled=false;}
             if(value.ScheduleAddress.Length==0)value.AppSchedule.Enabled=false;
-            value.WidgetView = value.WidgetView == "Chart" ? "Chart" : "Status";
+            value.WidgetView = value.WidgetView is "Chart" or "Schedule" ? value.WidgetView : "Status";
             value.HistoryHours = value.HistoryHours is 1 or 6 or 24 ? value.HistoryHours : 6;
             value.unit = value.unit == "F" ? "F" : "C";
             value.Transparency = double.IsFinite(value.Transparency) ? Math.Clamp(value.Transparency,45,100) : 94;

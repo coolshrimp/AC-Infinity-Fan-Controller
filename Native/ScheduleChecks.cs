@@ -142,13 +142,13 @@ internal static class ScheduleChecks
         Check(Convert.ToHexString(ControllerPrograms.ProgramFields(longestCycle)[22]) == "000151800000003C", "maximum cycle duration preserves all seconds bytes");
         foreach (var invalidProgram in new ControllerProgram[]
         {
-            new() { Mode = 0 }, new() { Mode = 2 }, new() { Mode = 8 },
+            new() { Mode = 0 }, new() { Mode = 8 },
             new() { StartMinute = -1 }, new() { StartMinute = 1440 },
             new() { EndMinute = -1 }, new() { EndMinute = 1440 },
             new() { StartMinute = 600, EndMinute = 600 },
             new() { Mode = 6, OnMinutes = 0 }, new() { Mode = 6, OnMinutes = 1441 },
             new() { Mode = 6, OffMinutes = -1 }, new() { Mode = 6, OffMinutes = int.MaxValue },
-            new() { RunSpeed = 0 }, new() { RunSpeed = 11 }, new() { IdleSpeed = -1 }, new() { IdleSpeed = 11 }
+            new() { RunSpeed = 11 }, new() { IdleSpeed = -1 }, new() { IdleSpeed = 11 }
         })
         {
             Check(invalidProgram.Validate().Length > 0, "invalid controller program rejected");

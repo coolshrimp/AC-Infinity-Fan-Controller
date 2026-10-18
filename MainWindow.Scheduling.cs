@@ -15,6 +15,8 @@ public partial class MainWindow
 {
     private readonly DispatcherTimer scheduleTimer=new(){Interval=TimeSpan.FromSeconds(1)};
     private bool scheduleTickRunning,scheduleStopping;
+    private byte[]? editorAutoRaw;
+    private bool editorFahrenheit;
     private AppScheduleSession scheduleSession=null!;
     private Forms.ToolStripMenuItem? trayScheduleStop;
     private bool HasAppSchedule => prefs.AppSchedule.Enabled||prefs.ScheduleRestore!=null;
@@ -23,13 +25,8 @@ public partial class MainWindow
         scheduleSession=new AppScheduleSession(prefs,controller,SaveScheduleState);
         LoadAppScheduleEditors();
         programsWindow.ReadControllerButton.Click+=async(_,_)=>await ProgramActionAsync(async()=>{await controller.ReadProgramsAsync();LoadControllerEditors();},"Reading controller settings…");
-        programsWindow.ApplyControllerButton.Click+=async(_,_)=>await ProgramActionAsync(async()=>
-        {
-            var program=ReadControllerEditors();
-            await StopAppScheduleCoreAsync(true);
-            await controller.ApplyProgramAsync(program);LoadControllerEditors();
-            programsWindow.ProgramActionText.Text="Saved and verified on the controller. This mode runs without this PC.";
-        },"Saving controller program…");
+        programsWindow.ApplyControllerButton.Click+=async(_,_)=>await SaveControllerEditorAsync(true);
+        programsWindow.SaveControllerButton.Click+=async(_,_)=>await SaveControllerEditorAsync(false);
         programsWindow.StartAppButton.Click+=async(_,_)=>await ProgramActionAsync(async()=>
         {
             var schedule=ReadAppScheduleEditors();
@@ -53,14 +50,73 @@ public partial class MainWindow
         return value;
     }
     private static string ClockText(int minutes)=>$"{minutes/60:00}:{minutes%60:00}";
+    private static double ReadDuration(TextBox box,string label)
+    {
+        var parts=box.Text.Trim().Split(':');
+        if(parts.Length!=3||!int.TryParse(parts[0],NumberStyles.None,CultureInfo.InvariantCulture,out int h)||
+           !int.TryParse(parts[1],NumberStyles.None,CultureInfo.InvariantCulture,out int m)||
+           !int.TryParse(parts[2],NumberStyles.None,CultureInfo.InvariantCulture,out int sec)||
+           h<0||h>24||m<0||m>59||sec<0||sec>59||h*3600+m*60+sec is <1 or >86400)
+            throw new ArgumentException(label+" must use HH:mm:ss, from 00:00:01 to 24:00:00.");
+        return (h*3600+m*60+sec)/60d;
+    }
+    private static string DurationText(uint seconds)=>$"{seconds/3600:00}:{seconds/60%60:00}:{seconds%60:00}";
     private ControllerProgram ReadControllerEditors()
     {
-        var window=programsWindow;
-        int mode=int.Parse((string)((ComboBoxItem)window.ProgramKindBox.SelectedItem).Tag,CultureInfo.InvariantCulture);
-        var program=new ControllerProgram{Mode=mode,RunSpeed=ReadInteger(window.ControllerRunSpeedBox,"Run speed"),IdleSpeed=ReadInteger(window.ControllerIdleSpeedBox,"Idle speed")};
-        if(mode==7){program.StartMinute=ReadMinutes(window.ControllerStartBox,"Start time");program.EndMinute=ReadMinutes(window.ControllerEndBox,"End time");}
-        else {program.OnMinutes=ReadInteger(window.ControllerOnMinutesBox,"Run duration");program.OffMinutes=ReadInteger(window.ControllerOffMinutesBox,"Idle duration");}
-        string error=program.Validate();if(error.Length>0)throw new ArgumentException(error);return program;
+        var w=programsWindow;
+        int mode=int.Parse((string)((ComboBoxItem)w.ProgramKindBox.SelectedItem).Tag,CultureInfo.InvariantCulture);
+        var p=new ControllerProgram{Mode=mode,RunSpeed=ReadInteger(w.ControllerRunSpeedBox,"Run speed"),IdleSpeed=ReadInteger(w.ControllerIdleSpeedBox,"Idle speed")};
+        switch(mode)
+        {
+            case 3:
+                if(editorAutoRaw==null)throw new ArgumentException("Read the controller's Auto settings before editing them.");
+                var auto=ControllerAutoSettings.FromRaw(editorAutoRaw,editorFahrenheit);
+                auto.HighTemperatureEnabled=w.HighTemperatureEnabledBox.IsChecked==true;
+                auto.LowTemperatureEnabled=w.LowTemperatureEnabledBox.IsChecked==true;
+                auto.HighHumidityEnabled=w.HighHumidityEnabledBox.IsChecked==true;
+                auto.LowHumidityEnabled=w.LowHumidityEnabledBox.IsChecked==true;
+                auto.HighTemperature=ReadInteger(w.HighTemperatureBox,"High temperature");
+                auto.LowTemperature=ReadInteger(w.LowTemperatureBox,"Low temperature");
+                auto.HighHumidity=ReadInteger(w.HighHumidityBox,"High humidity");
+                auto.LowHumidity=ReadInteger(w.LowHumidityBox,"Low humidity");p.Auto=auto;break;
+            case 4:p.TimerOnMinutes=ReadDuration(w.TimerOnBox,"Timer to On");break;
+            case 5:p.TimerOffMinutes=ReadDuration(w.TimerOffBox,"Timer to Off");break;
+            case 6:p.OnMinutes=ReadDuration(w.ControllerOnMinutesBox,"Run duration");p.OffMinutes=ReadDuration(w.ControllerOffMinutesBox,"Idle duration");break;
+            case 7:p.StartMinute=ReadMinutes(w.ControllerStartBox,"Start time");p.EndMinute=ReadMinutes(w.ControllerEndBox,"End time");break;
+        }
+        string error=p.Validate();if(error.Length>0)throw new ArgumentException(error);return p;
+    }
+    private async Task SaveControllerEditorAsync(bool activate)=>await ProgramActionAsync(async()=>
+    {
+        var program=ReadControllerEditors();
+        await StopAppScheduleCoreAsync(true);
+        await controller.ReadProgramsAsync();
+        // Another controller app may have edited Auto since this editor was loaded.
+        // Require a fresh read instead of overwriting its reserved bits or F/C pairs.
+        if(program.Mode==3&&(!controller.State.Settings.TryGetValue(19,out var current)||
+            editorAutoRaw==null||!System.Linq.Enumerable.SequenceEqual(current,editorAutoRaw)))
+            throw new InvalidOperationException("Auto settings changed since they were loaded. Read settings, then make your edits again.");
+        await controller.ApplyProgramAsync(program,activate);
+        LoadControllerEditors(program.Mode);
+        programsWindow.ProgramActionText.Text=activate?"Saved and verified. The selected mode now runs on the controller without this PC.":
+            "Saved and verified. The controller's active mode was kept; shared On/Off presets take effect immediately.";
+    },activate?"Saving and activating controller mode…":"Saving controller settings…");
+    private void ModeMenu_Click(object sender,RoutedEventArgs e)
+    {
+        if(captureLive)return;
+        foreach(var item in ModeMenu.Items)
+            if(item is MenuItem m&&m.Tag is string tag){m.IsCheckable=true;m.IsChecked=tag==controller.State.Mode.ToString(CultureInfo.InvariantCulture);}
+        ModeMenu.PlacementTarget=(Button)sender;ModeMenu.IsOpen=true;
+    }
+    private async void ControllerMode_Click(object sender,RoutedEventArgs e)
+    {
+        if(captureLive||smoke)return;
+        int mode=int.Parse((string)((MenuItem)sender).Tag,CultureInfo.InvariantCulture);
+        await ProgramActionAsync(async()=>
+        {
+            await StopAppScheduleCoreAsync(true);await controller.SelectModeAsync(mode);LoadControllerEditors(mode);
+            programsWindow.ProgramActionText.Text="Active mode: "+controller.State.ModeName+". Edit its stored settings here.";
+        },"Selecting controller mode…");
     }
     private AppFanSchedule ReadAppScheduleEditors()
     {
@@ -77,18 +133,26 @@ public partial class MainWindow
         w.AppOnMinutesBox.Text=s.OnMinutes.ToString(CultureInfo.InvariantCulture);w.AppOffMinutesBox.Text=s.OffMinutes.ToString(CultureInfo.InvariantCulture);
         w.AppRunSpeedBox.Text=s.RunSpeed.ToString(CultureInfo.InvariantCulture);w.AppIdleSpeedBox.Text=s.IdleSpeed.ToString(CultureInfo.InvariantCulture);
     }
-    private void LoadControllerEditors()
+    private void LoadControllerEditors(int? selectedMode=null)
     {
         var s=controller.State;var w=programsWindow;
-        if(s.Mode is 6 or 7)w.ProgramKindBox.SelectedIndex=s.Mode==7?0:1;
+        if((selectedMode??s.Mode) is >=1 and <=7)w.ProgramKindBox.SelectedIndex=(selectedMode??s.Mode)-1;
         w.ControllerRunSpeedBox.Text=s.On.ToString(CultureInfo.InvariantCulture);w.ControllerIdleSpeedBox.Text=s.Off.ToString(CultureInfo.InvariantCulture);
         if(s.Settings.TryGetValue(23,out var daily)&&daily.Length==4)
         {w.ControllerStartBox.Text=$"{daily[0]:00}:{daily[1]:00}";w.ControllerEndBox.Text=$"{daily[2]:00}:{daily[3]:00}";}
         if(s.Settings.TryGetValue(22,out var cycle)&&cycle.Length==8)
+        {w.ControllerOnMinutesBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(cycle));w.ControllerOffMinutesBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(cycle.AsSpan(4)));}
+        if(s.Settings.TryGetValue(20,out var on)&&on.Length==4)w.TimerOnBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(on));
+        if(s.Settings.TryGetValue(21,out var off)&&off.Length==4)w.TimerOffBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(off));
+        editorAutoRaw=null;
+        if(s.Settings.TryGetValue(19,out var raw)&&raw.Length==7)
         {
-            // Display fractions if existing settings include seconds. Saving accepts whole minutes.
-            w.ControllerOnMinutesBox.Text=(BinaryPrimitives.ReadUInt32BigEndian(cycle)/60d).ToString("0.##",CultureInfo.InvariantCulture);
-            w.ControllerOffMinutesBox.Text=(BinaryPrimitives.ReadUInt32BigEndian(cycle.AsSpan(4))/60d).ToString("0.##",CultureInfo.InvariantCulture);
+            editorAutoRaw=(byte[])raw.Clone();editorFahrenheit=fahrenheit;
+            var a=ControllerAutoSettings.FromRaw(raw,editorFahrenheit);w.AutoUnitText.Text=editorFahrenheit?"°F":"°C";
+            w.HighTemperatureEnabledBox.IsChecked=a.HighTemperatureEnabled;w.LowTemperatureEnabledBox.IsChecked=a.LowTemperatureEnabled;
+            w.HighHumidityEnabledBox.IsChecked=a.HighHumidityEnabled;w.LowHumidityEnabledBox.IsChecked=a.LowHumidityEnabled;
+            w.HighTemperatureBox.Text=a.HighTemperature.ToString(CultureInfo.InvariantCulture);w.LowTemperatureBox.Text=a.LowTemperature.ToString(CultureInfo.InvariantCulture);
+            w.HighHumidityBox.Text=a.HighHumidity.ToString(CultureInfo.InvariantCulture);w.LowHumidityBox.Text=a.LowHumidity.ToString(CultureInfo.InvariantCulture);
         }
     }
     private void SaveScheduleState()
@@ -151,7 +215,7 @@ public partial class MainWindow
     {
         if(!smoke)throw new InvalidOperationException("Scheduling UI checks require smoke mode.");
         var w=programsWindow;var original=prefs.AppSchedule;
-        if(w.ApplyControllerButton.IsEnabled||w.StartAppButton.IsEnabled||w.StopAppButton.IsEnabled)
+        if(w.SaveControllerButton.IsEnabled||w.ApplyControllerButton.IsEnabled||w.StartAppButton.IsEnabled||w.StopAppButton.IsEnabled)
             throw new InvalidOperationException("Disconnected scheduling controls accepted a write.");
         if(ReadAppScheduleEditors().Validate().Length>0)throw new InvalidOperationException("Default app schedule is invalid.");
         w.AppStartBox.Text="25:00";
@@ -160,11 +224,26 @@ public partial class MainWindow
         w.AppStartBox.Text="08:00";w.AppRunSpeedBox.Text="0";
         try {ReadAppScheduleEditors();throw new InvalidOperationException("Invalid running speed was accepted.");}
         catch(ArgumentException){}
-        w.AppRunSpeedBox.Text="5";w.ProgramKindBox.SelectedIndex=1;
+        w.AppRunSpeedBox.Text="5";w.ProgramKindBox.SelectedIndex=5;
         if(w.ControllerCyclePanel.Visibility!=Visibility.Visible||w.ControllerDailyPanel.Visibility!=Visibility.Collapsed||ReadControllerEditors().Mode!=6)
             throw new InvalidOperationException("Controller cycle fields do not match the selected mode.");
-        w.ProgramKindBox.SelectedIndex=0;
+        w.ProgramKindBox.SelectedIndex=6;
         if(ReadControllerEditors().Mode!=7)throw new InvalidOperationException("Controller daily fields do not match the selected mode.");
+        w.ProgramKindBox.SelectedIndex=3;w.TimerOnBox.Text="24:00:00";
+        if(ReadControllerEditors().TimerOnMinutes!=1440)throw new InvalidOperationException("24-hour timer was truncated.");
+        w.TimerOnBox.Text="00:00:01";
+        if(ReadControllerEditors().TimerOnMinutes!=1d/60)throw new InvalidOperationException("Timer seconds were truncated.");
+        w.TimerOnBox.Text="24:00:01";
+        try{ReadControllerEditors();throw new InvalidOperationException("Timer above 24 hours accepted.");}catch(ArgumentException){}
+        w.TimerOnBox.Text="00:30:00";
+        editorAutoRaw=new byte[]{0xaf,88,31,60,16,80,50};editorFahrenheit=false;
+        w.ProgramKindBox.SelectedIndex=2;w.HighTemperatureBox.Text="31";w.LowTemperatureBox.Text="16";
+        w.HighHumidityBox.Text="80";w.LowHumidityBox.Text="50";
+        w.HighTemperatureEnabledBox.IsChecked=true;w.LowTemperatureEnabledBox.IsChecked=true;
+        w.HighHumidityEnabledBox.IsChecked=true;w.LowHumidityEnabledBox.IsChecked=false;
+        var encoded=ReadControllerEditors().Auto!.Encode();
+        if(encoded[0]!=0xae||encoded[1]!=88||encoded[3]!=60)throw new InvalidOperationException("Auto editor lost reserved bits or unchanged F/C pairs.");
+        editorAutoRaw=null;w.ProgramKindBox.SelectedIndex=6;
         prefs.AppSchedule=ReadAppScheduleEditors();UpdateScheduleView();
         Tray_Click(this,new RoutedEventArgs());
         if(!prefs.AppSchedule.Enabled||IsVisible)throw new InvalidOperationException("Minimizing disabled the app schedule.");
@@ -175,7 +254,7 @@ public partial class MainWindow
         if(!initialized)return;
         bool available=!captureLive&&controller.Connected&&(!busy||refreshing)&&!scheduleStopping;
         var w=programsWindow;
-        w.ReadControllerButton.IsEnabled=available;w.ApplyControllerButton.IsEnabled=available;w.StartAppButton.IsEnabled=available;
+        w.SaveControllerButton.IsEnabled=available;w.ReadControllerButton.IsEnabled=available;w.ApplyControllerButton.IsEnabled=available;w.StartAppButton.IsEnabled=available;
         w.StopAppButton.IsEnabled=!captureLive&&HasAppSchedule&&(!busy||refreshing)&&!scheduleStopping;
         if(trayScheduleStop!=null)trayScheduleStop.Enabled=HasAppSchedule;
         string text="No app schedule running.";

@@ -9,7 +9,7 @@
     <EnableDefaultItems>false</EnableDefaultItems>
     <RootNamespace>ACInfinityDesktop</RootNamespace>
     <AssemblyName>AC-Infinity-Desktop</AssemblyName>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
@@ -27,8 +27,8 @@
     <Compile Include="ColorPickerWindow.xaml.cs" />
     <Page Include="SensorChartView.xaml" />
     <Compile Include="SensorChartView.xaml.cs" />
-    <Page Include="AppearanceWindow.xaml;BluetoothWindow.xaml;ProgramsWindow.xaml;HelpWindow.xaml;HistoryWindow.xaml" />
-    <Compile Include="AppearanceWindow.xaml.cs;BluetoothWindow.xaml.cs;ProgramsWindow.xaml.cs;HelpWindow.xaml.cs;HistoryWindow.xaml.cs" />
+    <Page Include="AppearanceWindow.xaml;BluetoothWindow.xaml;ProgramsView.xaml;HelpWindow.xaml;HistoryWindow.xaml" />
+    <Compile Include="AppearanceWindow.xaml.cs;BluetoothWindow.xaml.cs;ProgramsView.xaml.cs;HelpWindow.xaml.cs;HistoryWindow.xaml.cs" />
     <Compile Include="App.xaml.cs" />
     <Compile Include="MainWindow.xaml.cs" />
     <Compile Include="MainWindow.Scheduling.cs" />

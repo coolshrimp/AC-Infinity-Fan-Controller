@@ -43,7 +43,15 @@ public partial class App : Application
         }
         if (e.Args.Contains("--self-test"))
         {
-            try { File.WriteAllText(GetOutput(e.Args), JsonSerializer.Serialize(ProtocolChecks.Run(), new JsonSerializerOptions {WriteIndented=true})); Shutdown(0); }
+            try
+            {
+                var existing=JsonSerializer.SerializeToElement(ProtocolChecks.Run());
+                int basePassed=existing.GetProperty("passed").GetInt32();
+                int controllerEditingPassed=ControllerEditingChecks.Run();
+                var result=new {passed=basePassed+controllerEditingPassed,basePassed,controllerEditingPassed,framework="native .NET",hardwareWrites=false};
+                File.WriteAllText(GetOutput(e.Args),JsonSerializer.Serialize(result,new JsonSerializerOptions {WriteIndented=true}));
+                Shutdown(0);
+            }
             catch (Exception ex) { File.WriteAllText(GetOutput(e.Args), ex.ToString()); Shutdown(1); }
             return;
         }

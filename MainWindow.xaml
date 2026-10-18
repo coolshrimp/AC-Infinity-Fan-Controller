@@ -20,17 +20,28 @@
     </StackPanel>
    </Grid>
    <DockPanel Margin="0,7,0,16"><Button Click="Connection_Click" DockPanel.Dock="Right" Padding="0" Margin="0" Background="Transparent" BorderBrush="Transparent" ToolTip="Bluetooth connection"><TextBlock x:Name="ConnectionBadge" Text="● Offline" FontSize="10"/></Button><TextBlock x:Name="UpdatedText" Text="No live readings" FontSize="10" Foreground="{DynamicResource MutedBrush}"/></DockPanel>
-   <UniformGrid Columns="3">
+   <UniformGrid x:Name="SensorMetricsPanel" Columns="3">
     <StackPanel ToolTip="Air temperature measured by the controller sensor."><TextBlock Text="TEMPERATURE" FontSize="9" Foreground="{DynamicResource MutedBrush}"/><StackPanel Orientation="Horizontal"><TextBlock x:Name="TemperatureText" Text="—" FontSize="31" FontWeight="Light"/><Button x:Name="UnitButton" Content="°C" Click="Unit_Click" ToolTip="Switch temperature units" Padding="0" Margin="4,6,0,0" VerticalAlignment="Top" BorderBrush="Transparent" Background="Transparent" FontSize="10"/></StackPanel></StackPanel>
     <StackPanel ToolTip="Relative humidity: the moisture in the air compared with saturation, shown as a percentage."><TextBlock Text="HUMIDITY" FontSize="9" Foreground="{DynamicResource MutedBrush}"/><StackPanel Orientation="Horizontal"><TextBlock x:Name="HumidityText" Text="—" FontSize="31" FontWeight="Light"/><TextBlock Text="%" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="4,6,0,0"/></StackPanel></StackPanel>
     <StackPanel ToolTip="VPD means vapor pressure deficit: how far the air is from saturation, in kilopascals (kPa). Calculated from air temperature and humidity, without a leaf-temperature adjustment."><TextBlock Text="VPD · CALCULATED" FontSize="9" Foreground="{DynamicResource MutedBrush}"/><StackPanel Orientation="Horizontal"><TextBlock x:Name="VpdText" Text="—" FontSize="31" FontWeight="Light"/><TextBlock Text="kPa" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="4,6,0,0"/></StackPanel></StackPanel>
    </UniformGrid>
-   <Border Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="12" Margin="0,12,0,0"><StackPanel>
+   <Border x:Name="FanControlsCard" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="12" Margin="0,12,0,0"><StackPanel>
 <Grid x:Name="DeviceStatusPanel" ToolTip="Controller-reported output from 0 to 10, not measured motor RPM. Both Controller 67 fan connections share this setting."><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
      <Image Source="ui/icon.png" Width="25" Height="25" Margin="0,0,12,0" RenderTransformOrigin="0.5,0.5"><Image.RenderTransform><RotateTransform x:Name="FanRotation"/></Image.RenderTransform></Image>
-     <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Fan speed" FontSize="12"/><TextBlock x:Name="ModeText" Text="Not connected" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0"/></StackPanel>
+     <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Fan speed" FontSize="12"/><Button x:Name="ModeButton" Click="ModeMenu_Click" ToolTip="Choose Manual, Auto, timer, cycle, or daily schedule" AutomationProperties.Name="Choose controller operating mode" Background="Transparent" BorderBrush="Transparent" Padding="0,3,0,0" Margin="0" HorizontalAlignment="Left">
+      <Button.ContextMenu><ContextMenu x:Name="ModeMenu" Background="#1D222D" Foreground="#E2EEFC">
+       <MenuItem Header="Manual Off" Tag="1" Click="ControllerMode_Click"/>
+       <MenuItem Header="Manual On" Tag="2" Click="ControllerMode_Click"/>
+       <MenuItem Header="Auto · temperature / humidity" Tag="3" Click="ControllerMode_Click"/>
+       <MenuItem Header="Timer to On" Tag="4" Click="ControllerMode_Click"/>
+       <MenuItem Header="Timer to Off" Tag="5" Click="ControllerMode_Click"/>
+       <MenuItem Header="Repeating cycle" Tag="6" Click="ControllerMode_Click"/>
+       <MenuItem Header="Daily schedule" Tag="7" Click="ControllerMode_Click"/>
+      </ContextMenu></Button.ContextMenu>
+      <StackPanel Orientation="Horizontal"><TextBlock x:Name="ModeText" Text="Not connected" FontSize="10" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text=" ⌄" FontSize="10" Foreground="{DynamicResource MutedBrush}"/></StackPanel>
+     </Button></StackPanel>
      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="OutputText" Foreground="{DynamicResource AccentBrush}" Text="—" FontSize="27" FontWeight="Light"/><TextBlock Text=" / 10" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="0,0,8,5"/></StackPanel>
-     <Button Grid.Column="3" Content="⋯" Click="Programs_Click" ToolTip="Controller and PC fan schedules" Padding="8,5" VerticalAlignment="Center"/>
+     <Button x:Name="FanOptionsButton" Grid.Column="3" Content="⋯" Click="ModeMenu_Click" ToolTip="Fan mode options" AutomationProperties.Name="Fan mode options" Padding="8,5" VerticalAlignment="Center"/>
     </Grid>
     <Border Height="1" Background="#35404D" Margin="0,12,0,10"/>
     <DockPanel>
@@ -45,9 +56,10 @@
     <DockPanel><StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button x:Name="HourButton" Content="1h" Tag="1" Click="Range_Click" Padding="7,3"/><Button x:Name="SixHourButton" Content="6h" Tag="6" Click="Range_Click" Padding="7,3"/><Button x:Name="DayButton" Content="24h" Tag="24" Click="Range_Click" Padding="7,3"/></StackPanel><TextBlock Text="SENSOR HISTORY" FontSize="9" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/></DockPanel>
     <local:SensorChartView x:Name="HistoryChart"/>
    </StackPanel>
+   <local:ProgramsView x:Name="ScheduleEditorView" Visibility="Collapsed" Margin="0,0,0,0"/>
    <TextBlock x:Name="StatusText" Text="Choose a device to begin." FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,10,0,4" MaxHeight="28" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
    <Grid Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-    <StackPanel Orientation="Horizontal"><Button x:Name="StatusTab" Content="Status" Tag="Status" Click="View_Click" Padding="8,5" FontSize="10"/><Button x:Name="ChartTab" Content="Chart" Tag="Chart" Click="View_Click" Padding="8,5" FontSize="10"/></StackPanel>
+    <StackPanel Orientation="Horizontal"><Button x:Name="StatusTab" Content="Status" Tag="Status" Click="View_Click" Padding="8,5" FontSize="10"/><Button x:Name="ChartTab" Content="Chart" Tag="Chart" Click="View_Click" Padding="8,5" FontSize="10"/><Button x:Name="ScheduleTab" Content="Schedule" Tag="Schedule" Click="View_Click" Padding="8,5" FontSize="10"/></StackPanel>
     <StackPanel Grid.Column="1" Orientation="Horizontal"><Button x:Name="HistoryButton" Content="History ↗" Click="History_Click" ToolTip="Review saved sensor history in a separate panel" Padding="7,3" FontSize="10"/><Button x:Name="RefreshButton" Content="↻" Click="Refresh_Click" ToolTip="Refresh readings" Padding="7,3"/><Button Content="?" Click="Help_Click" ToolTip="Help and about" Padding="7,3"/></StackPanel>
    </Grid>
    <Button Content="Created by: Coolshrimp Mods" Click="Credit_Click" ToolTip="Visit coolshrimpmodz.com" Background="Transparent" BorderBrush="Transparent" FontSize="9" Padding="0" Margin="0,8,0,0" HorizontalAlignment="Center"/>

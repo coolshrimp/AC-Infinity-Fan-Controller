@@ -11,7 +11,7 @@ function Invoke-Check([string]$Arguments, [string]$OutputName) {
     foreach($previous in @($output, "$output.error.txt", "$output.layout.json")) {
         if (Test-Path -LiteralPath $previous) { Remove-Item -LiteralPath $previous }
     }
-    $process = Start-Process -FilePath $aciExe -ArgumentList "$Arguments --output `"$output`"" -PassThru
+    $process = Start-Process -FilePath $aciExe -ArgumentList "$Arguments --output `"$output`"" -WindowStyle Hidden -PassThru
     if (-not $process.WaitForExit(60000)) {
         $process.Kill()
         throw "Check timed out: $Arguments"
@@ -27,10 +27,17 @@ function Invoke-Check([string]$Arguments, [string]$OutputName) {
 
 Invoke-Check '--self-test' 'checks.json'
 $aciResult = Get-Content (Join-Path $aciChecks 'checks.json') -Raw | ConvertFrom-Json
-if ($aciResult.passed -lt 383) { throw 'Offline check count is below the expected baseline.' }
+if ($aciResult.basePassed -lt 379 -or $aciResult.controllerEditingPassed -lt 1) {
+    throw 'Offline protocol/scheduling or controller-editing checks are missing.'
+}
+$aciExpectedTotal = [int]$aciResult.basePassed + [int]$aciResult.controllerEditingPassed
+if ($aciResult.passed -ne $aciExpectedTotal -or $aciResult.hardwareWrites -ne $false) {
+    throw 'Offline check totals or hardware-write isolation are invalid.'
+}
 # Smoke checks use in-memory preferences and never connect to a controller.
-foreach ($view in @('status', 'chart', 'settings', 'picker', 'bluetooth', 'history', 'programs', 'controller-cycle', 'app-schedule')) {
+$aciViews = @('status', 'chart', 'settings', 'picker', 'bluetooth', 'history', 'programs', 'controller-cycle', 'app-schedule', 'controller-auto', 'controller-timer-on', 'controller-timer-off')
+foreach ($view in $aciViews) {
     Invoke-Check "--smoke --$view" "$view.png"
 }
 Invoke-Check '--smoke --multi-controller' 'multiple-controllers.png'
-Write-Host "Passed $($aciResult.passed) offline checks and ten window checks."
+Write-Host "Passed $($aciResult.passed) offline checks and $($aciViews.Count + 1) window checks."

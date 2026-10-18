@@ -1,5 +1,19 @@
 # Changes
 
+## 0.8.0
+
+- Embed the program editor in a Schedule tab beside Status and Chart.
+- Use the fan’s ⋯ options and current-mode dropdown for Manual Off/On, Auto, Timer to On/Off, Repeating cycle, and Daily schedule.
+- Edit all seven basic controller modes with native On/Off presets from 0 to 10.
+- Add four independent Auto triggers with whole-degree Celsius/Fahrenheit thresholds; preserve unedited temperature pairs and reserved settings.
+- Edit native timers and cycles to whole-second precision using HH:mm:ss, from one second through 24 hours.
+- Add Save settings that reselects the prior mode if firmware switches it during a write, alongside Save & activate; verify saved values through readback.
+- Extend offline controller-editing checks and window smoke coverage for Auto and both timer layouts.
+- Keep the PC-managed daily-window/cycle scheduler and its restoration behavior.
+- Block edits to the currently running timer until a manual mode is selected, avoiding countdown resets.
+- Verify Auto threshold preservation, a changed temperature pair, trigger enable flags, exact 61/67-second timer settings, and native mode selection on one live Controller 67.
+- Confirm PC-managed output 10/0, stop restoration, and the complete original stored settings after reconnect; full-duration native timing and sensor-triggered Auto response remain unverified.
+
 ## 0.7.0
 
 - Add a Fan schedules panel with separate Controller and This PC sections.

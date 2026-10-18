@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     private readonly ColorPickerWindow colorPicker=new();
     private bool syncingAppearance,editingAccent;
     private readonly BluetoothWindow bluetoothWindow=new();
-    private readonly ProgramsWindow programsWindow=new();
+    private ProgramsView programsWindow=>ScheduleEditorView;
     private readonly HelpWindow helpWindow=new();
     private readonly HistoryWindow historyWindow=new();
     private readonly SensorHistory history=new();
@@ -29,11 +29,12 @@ public partial class MainWindow : Window
     private bool editingSpeed, submittingSpeed;
     private double speedAtStart;
     private bool loadingDisplayName;
+    private bool windowClampQueued;
     private readonly List<int> smokeSpeedCommands=new();
     private readonly TaskCompletionSource smokeReady=new(TaskCreationOptions.RunContinuationsAsynchronously);
     internal Task SmokeReady=>smokeReady.Task;
     private string historyAddress="";
-    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow,colorPicker,historyWindow};
+    private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,helpWindow,colorPicker,historyWindow};
     private TextBox AddressBox=>bluetoothWindow.AddressBox;
     private ListBox DevicesList=>bluetoothWindow.DevicesList;
     private Button ScanButton=>bluetoothWindow.ScanButton;
@@ -67,7 +68,7 @@ public partial class MainWindow : Window
         preferences=settingsPath??Path.Combine(DataDirectory,"preferences.json");
         InitializeComponent();
         foreach(var panel in Panels){panel.Resources=Resources;panel.SizeChanged+=(_,_)=>UpdateDockedPanels();}
-        LocationChanged+=(_,_)=>UpdateDockedPanels();SizeChanged+=(_,_)=>UpdateDockedPanels();
+        LocationChanged+=(_,_)=>UpdateDockedPanels();SizeChanged+=(_,_)=>{UpdateDockedPanels();QueueWindowClamp();};
         SpeedSlider.ValueChanged+=Speed_Changed;
         SpeedSlider.PreviewMouseLeftButtonDown+=(_,_)=>BeginSpeedEdit();
         SpeedSlider.AddHandler(Mouse.PreviewMouseUpEvent,new MouseButtonEventHandler(async(_,e)=>{if(e.ChangedButton==MouseButton.Left)await ReleaseSpeedAsync();}),true);
@@ -101,13 +102,14 @@ public partial class MainWindow : Window
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
         historyAddress=prefs.address;history.SelectDevice(DataDirectory,prefs.address,smoke);
         initialized=true;InitializeScheduling();UpdateDeviceIdentity();ApplyAppearance();ApplyWidgetView();
-        IsVisibleChanged+=(_,_)=>UpdateFanAnimation(controller.Connected?controller.State.Output:null);
+        IsVisibleChanged+=(_,_)=>{UpdateFanAnimation(controller.Connected?controller.State.Output:null);if(IsVisible)QueueWindowClamp();};
         timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true,true);else {UpdateView();await AutoConnectAsync();}};
         UpdateView();
     }
     private async void Window_Loaded(object sender,RoutedEventArgs e)
     {
         foreach(var panel in Panels)panel.Owner=this;
+        QueueWindowClamp();
         if(smoke){
             if(prefs.WidgetView!="Status"||ModeText.Visibility!=Visibility.Visible||ChartPanel.Visibility!=Visibility.Collapsed)
                 throw new InvalidOperationException("Widget must open on Status with the controller mode visible.");
@@ -116,6 +118,12 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("Chart must retain the controller status and controls.");
             StatusTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             if(ChartPanel.Visibility!=Visibility.Collapsed)throw new InvalidOperationException("Status did not hide the inline chart.");
+            FanOptionsButton.IsEnabled=true;
+            FanOptionsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if(!ModeMenu.IsOpen||ModeMenu.PlacementTarget!=FanOptionsButton||ModeMenu.Items.Count!=7)
+                throw new InvalidOperationException("Fan options must open the seven-mode menu.");
+            ModeMenu.IsOpen=false;
+            await CheckScheduleWindowPlacementAsync();
             // Exercise release-to-set without a radio, including telemetry during a drag.
             SpeedSlider.IsEnabled=true;SpeedSlider.Value=3;
             if(smokeSpeedCommands.Count!=0)throw new InvalidOperationException("Telemetry issued a speed command");
@@ -174,11 +182,14 @@ public partial class MainWindow : Window
                 DevicesList.ItemsSource=new[]{new DiscoveredController(0xAABBCCDDEEFF,"Example Controller 67",-65,1){Verified=true}};
                 Connection_Click(this,new RoutedEventArgs());
             }
-            if(Environment.GetCommandLineArgs().Any(arg=>arg is "--programs" or "--app-schedule" or "--controller-cycle"))
+            if(Environment.GetCommandLineArgs().Any(arg=>arg is "--programs" or "--app-schedule" or "--controller-cycle" or "--controller-auto" or "--controller-timer-on" or "--controller-timer-off"))
             {
                 CheckScheduleInputs();Programs_Click(this,new RoutedEventArgs());
                 if(Environment.GetCommandLineArgs().Contains("--app-schedule"))programsWindow.ThisPcTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-                if(Environment.GetCommandLineArgs().Contains("--controller-cycle"))programsWindow.ProgramKindBox.SelectedIndex=1;
+                if(Environment.GetCommandLineArgs().Contains("--controller-cycle"))programsWindow.ProgramKindBox.SelectedIndex=5;
+                if(Environment.GetCommandLineArgs().Contains("--controller-auto"))programsWindow.ProgramKindBox.SelectedIndex=2;
+                if(Environment.GetCommandLineArgs().Contains("--controller-timer-on"))programsWindow.ProgramKindBox.SelectedIndex=3;
+                if(Environment.GetCommandLineArgs().Contains("--controller-timer-off"))programsWindow.ProgramKindBox.SelectedIndex=4;
             }
             if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--history"))History_Click(this,new RoutedEventArgs());
@@ -256,7 +267,7 @@ public partial class MainWindow : Window
         if(quitting)return;
         quitting=true;timer.Stop();await RestoreScheduleBeforeQuitAsync();
         ClosePopups();SavePreferences();
-        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=colorPicker.AllowClose=historyWindow.AllowClose=true;
+        appearanceWindow.AllowClose=bluetoothWindow.AllowClose=helpWindow.AllowClose=colorPicker.AllowClose=historyWindow.AllowClose=true;
         SaveHistory();
         foreach(var panel in Panels)panel.Close();
         await controller.DisconnectAsync();
@@ -440,7 +451,7 @@ public partial class MainWindow : Window
         bool live=controller.Connected;
         bool blockControls=busy&&!refreshing;
         foreach(var b in new[]{RefreshButton})b.IsEnabled=live&&!blockControls;
-        OnOffToggle.IsEnabled=live&&!blockControls;SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
+        FanOptionsButton.IsEnabled=ModeButton.IsEnabled=live&&!blockControls;OnOffToggle.IsEnabled=live&&!blockControls;SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
         ScanButton.Visibility=live?Visibility.Collapsed:Visibility.Visible;
         DisconnectButton.Visibility=live?Visibility.Visible:Visibility.Collapsed;DisconnectButton.IsEnabled=!blockControls;
         UpdateScheduleView();
@@ -459,7 +470,7 @@ public partial class MainWindow : Window
         TemperatureText.Text=live&&s.TemperatureC is double t?(fahrenheit?t*1.8+32:t).ToString("0.0"):"—";
         HumidityText.Text=live&&s.Humidity is double h?h.ToString("0.0"):"—";
         VpdText.Text=live&&s.TemperatureC is double c&&s.Humidity is double rh?(0.6108*Math.Exp(17.27*c/(c+237.3))*(1-rh/100)).ToString("0.00"):"—";
-        OnOffToggle.IsChecked=live&&s.Mode==2;OnOffToggle.Content=!live?"On / Off":s.Mode==2?"On":s.Mode==1?"Off":"Auto";
+        OnOffToggle.IsChecked=live&&s.Mode==2;OnOffToggle.Content=!live?"On / Off":s.Mode==2?"On":s.Mode==1?"Off":"Manual On / Off";
         UpdateFanAnimation(live?s.Output:null);
         OutputText.Text=live?s.Output?.ToString()??"—":"—";ModeText.Text=live?s.ModeName+(speedPolling.Target.HasValue?$" · {s.Output} → {speedPolling.Target}":""):"Not connected";
         UpdatedText.Text=live?$"Last updated {s.Updated:HH:mm:ss}":"No live readings";
@@ -479,12 +490,55 @@ public partial class MainWindow : Window
     private void History_Click(object sender,RoutedEventArgs e){UpdateCharts();TogglePanel(historyWindow);}
     private void ApplyWidgetView()
     {
-        if(prefs.WidgetView!="Chart")prefs.WidgetView="Status";
+        if(prefs.WidgetView is not ("Chart" or "Schedule"))prefs.WidgetView="Status";
+        bool schedule=prefs.WidgetView=="Schedule";
+        SensorMetricsPanel.Visibility=FanControlsCard.Visibility=schedule?Visibility.Collapsed:Visibility.Visible;
+        ScheduleEditorView.Visibility=schedule?Visibility.Visible:Visibility.Collapsed;
+        var working=MonitorWorkArea();
+        ScheduleEditorView.MaxHeight=Math.Max(180,Math.Min(650,working.Height-190));
+        QueueWindowClamp(working);
         DeviceStatusPanel.Visibility=Visibility.Visible;
         ChartPanel.Visibility=prefs.WidgetView=="Chart"?Visibility.Visible:Visibility.Collapsed;
-        foreach(var button in new[]{StatusTab,ChartTab})
+        foreach(var button in new[]{StatusTab,ChartTab,ScheduleTab})
         {button.Background=(string)button.Tag==prefs.WidgetView?(Brush)Resources["HeaderBrush"]:Brushes.Transparent;button.BorderBrush=(string)button.Tag==prefs.WidgetView?(Brush)Resources["AccentBrush"]:Brushes.Transparent;}
         UpdateCharts();
+    }
+    private void QueueWindowClamp(Rect? workArea=null)
+    {
+        if(windowClampQueued||!IsLoaded||!IsVisible)return;
+        windowClampQueued=true;
+        // Keep the monitor that held the compact widget before SizeToContent grows it.
+        // Waiting for layout avoids clamping against the preceding view's dimensions.
+        var area=workArea??MonitorWorkArea();
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,new Action(()=>
+        {
+            windowClampQueued=false;
+            if(!IsLoaded||!IsVisible)return;
+            double left=Math.Clamp(double.IsFinite(Left)?Left:area.Left,area.Left,Math.Max(area.Left,area.Right-ActualWidth));
+            double top=Math.Clamp(double.IsFinite(Top)?Top:area.Top,area.Top,Math.Max(area.Top,area.Bottom-ActualHeight));
+            if(Math.Abs(Left-left)>.1)Left=left;
+            if(Math.Abs(Top-top)>.1)Top=top;
+        }));
+    }
+    private async Task CheckScheduleWindowPlacementAsync()
+    {
+        await Dispatcher.Yield(DispatcherPriority.ContextIdle);UpdateLayout();
+        double oldLeft=Left,oldTop=Top;
+        var area=MonitorWorkArea();
+        try
+        {
+            Top=area.Bottom-ActualHeight;
+            ScheduleTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            await Dispatcher.Yield(DispatcherPriority.ContextIdle);UpdateLayout();
+            if(Top<area.Top-1||Top+ActualHeight>area.Bottom+1)
+                throw new InvalidOperationException("Opening Schedule from the desktop's bottom edge hid part of the widget.");
+        }
+        finally
+        {
+            StatusTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            await Dispatcher.Yield(DispatcherPriority.ContextIdle);UpdateLayout();
+            Left=oldLeft;Top=oldTop;
+        }
     }
     private void UpdateCharts()
     {
@@ -521,6 +575,14 @@ public partial class MainWindow : Window
         TogglePanel(appearanceWindow);appearanceWindow.UpdateLayout();
         await Task.Delay(150);
         App.CaptureSurface(appearanceWindow,Path.Combine(directory,"appearance.png"));
+        ClosePopups();prefs.WidgetView="Schedule";ApplyWidgetView();LoadControllerEditors();
+        foreach(var view in new[]{(7,"controller-schedule"),(3,"controller-auto")})
+        {
+            programsWindow.SelectSection(true);programsWindow.ProgramKindBox.SelectedIndex=view.Item1-1;
+            UpdateLayout();await Task.Delay(150);App.CaptureSurface(this,Path.Combine(directory,view.Item2+".png"));
+        }
+        programsWindow.SelectSection(false);UpdateLayout();await Task.Delay(150);
+        App.CaptureSurface(this,Path.Combine(directory,"pc-schedule.png"));
     }
     private void UpdateFanAnimation(int? output)
     {
@@ -545,7 +607,7 @@ public partial class MainWindow : Window
     }
     private void Credit_Click(object sender,RoutedEventArgs e)=>Branding.OpenWebsite(this);
     private void Settings_Click(object sender,RoutedEventArgs e)=>TogglePanel(appearanceWindow);
-    private void Programs_Click(object sender,RoutedEventArgs e)=>TogglePanel(programsWindow);
+    private void Programs_Click(object sender,RoutedEventArgs e){prefs.WidgetView="Schedule";ApplyWidgetView();SavePreferences();}
     private void Help_Click(object sender,RoutedEventArgs e)=>TogglePanel(helpWindow);
     private void ClosePopups(){foreach(var panel in Panels)panel.Hide();}
     private void TogglePanel(Window panel)
@@ -638,10 +700,16 @@ public partial class MainWindow : Window
         PinButton.Foreground=Topmost?(Brush)Resources["AccentBrush"]:Brushes.LightSteelBlue;
         if(initialized)ApplyWidgetView();
     }
-    private static string DescribePrograms(Dictionary<byte,byte[]> f)
+    private string DescribePrograms(Dictionary<byte,byte[]> f)
     {
-        var lines=new List<string>{"Stored presets; the active mode is shown above."};
-        if(f.TryGetValue(19,out var a)&&a.Length==7)lines.Add($"Auto: low {a[4]}°C / {a[6]}% RH; high {a[2]}°C / {a[5]}% RH.");
+        var lines=new List<string>{"Active mode: "+controller.State.ModeName+". Stored settings:"};
+        if(f.TryGetValue(19,out var a)&&a.Length==7)
+        {
+            string Trigger(int mask,string value)=>(a[0]&mask)!=0?value:"disabled";
+            string unit=fahrenheit?"°F":"°C";
+            lines.Add("Auto high temperature: "+Trigger(8,a[fahrenheit?1:2]+unit)+"; low: "+Trigger(4,a[fahrenheit?3:4]+unit));
+            lines.Add("Auto high humidity: "+Trigger(2,a[5]+"% RH")+"; low: "+Trigger(1,a[6]+"% RH"));
+        }
         if(f.TryGetValue(20,out var on)&&on.Length==4)lines.Add($"Timer to On: {BinaryPrimitives.ReadUInt32BigEndian(on)/60d:0.#} minutes");
         if(f.TryGetValue(21,out var off)&&off.Length==4)lines.Add($"Timer to Off: {BinaryPrimitives.ReadUInt32BigEndian(off)/60d:0.#} minutes");
         if(f.TryGetValue(22,out var cycle)&&cycle.Length==8)lines.Add($"Cycle: {BinaryPrimitives.ReadUInt32BigEndian(cycle)/60d:0.#} min On / {BinaryPrimitives.ReadUInt32BigEndian(cycle.AsSpan(4))/60d:0.#} min Off");

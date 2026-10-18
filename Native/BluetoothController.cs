@@ -151,25 +151,122 @@ public sealed class BluetoothController : IScheduleController
         catch {await DisconnectCoreAsync();throw;}
         finally {gate.Release();}
     }
-    public Task ApplyProgramAsync(ControllerProgram program)=>WriteVerifiedAsync(ControllerPrograms.ProgramFields(program));
+    public Task ApplyProgramAsync(ControllerProgram program,bool activate=true)
+    {
+        var configuration=ControllerPrograms.ProgramFields(program,false);
+        return WriteConfigurationAsync(configuration,activate?(byte)program.Mode:null,false);
+    }
+    public Task SelectModeAsync(int mode)
+    {
+        if(mode is <1 or >7)throw new ArgumentOutOfRangeException(nameof(mode),"Controller mode must be 1–7.");
+        return WriteConfigurationAsync(new Dictionary<byte,byte[]>(),(byte)mode,false);
+    }
     public Task SetPresetsAsync(ControllerPresetSnapshot presets)=>WriteVerifiedAsync(Protocol.Fields(ControllerPrograms.Presets(presets)));
-    // Used only by the bounded live check to restore the exact saved bytes.
+    // Used by bounded checks to restore exact saved bytes, including untouched Auto/timers.
     internal Task RestoreProgramsAsync(Dictionary<byte,byte[]> fields)
     {
-        if(fields.Keys.Any(k=>k is not (16 or 17 or 18 or 22 or 23)))throw new ArgumentException("Unexpected program field.");
-        var ordered=fields.Where(p=>p.Key!=16).ToDictionary(p=>p.Key,p=>p.Value);
-        if(fields.TryGetValue(16,out var mode))ordered[16]=mode;
-        return WriteVerifiedAsync(ordered);
+        ArgumentNullException.ThrowIfNull(fields);
+        if(fields.Count==0||fields.Keys.Any(k=>k is <16 or >23))throw new ArgumentException("Unexpected program field.");
+        foreach(var field in fields)
+        {
+            int length=field.Key switch{16 or 17 or 18=>1,19=>7,20 or 21 or 23=>4,22=>8,_=>0};
+            if(field.Value==null||field.Value.Length!=length)throw new ArgumentException("Malformed saved program field.");
+            if(field.Key==16&&field.Value[0] is <1 or >7)throw new ArgumentException("Invalid saved controller mode.");
+            if(field.Key is 17 or 18&&field.Value[0]>10)throw new ArgumentException("Invalid saved controller preset.");
+        }
+        var configuration=fields.Where(p=>p.Key!=16).ToDictionary(p=>p.Key,p=>(byte[])p.Value.Clone());
+        byte? mode=fields.TryGetValue(16,out var originalMode)?originalMode[0]:null;
+        return WriteConfigurationAsync(configuration,mode,true);
+    }
+    private async Task WriteConfigurationAsync(Dictionary<byte,byte[]> configuration,byte? activateMode,bool restoring)
+    {
+        await gate.WaitAsync();
+        bool blockedActiveTimer=false;
+        try
+        {
+            RequireConnection();
+            byte? preserveMode=null;
+            if(!restoring&&!activateMode.HasValue&&configuration.Count>0)
+            {
+                // Some Controller 67 firmware activates a mode when its settings change.
+                // Save-only must preserve the fresh pre-write mode, not a cached editor value.
+                await ReadLiveCoreAsync();
+                if(State.Mode is <1 or >7)throw new InvalidDataException("Cannot preserve an unknown controller mode.");
+                preserveMode=(byte)State.Mode;
+            }
+            if(configuration.ContainsKey(20)||configuration.ContainsKey(21))
+            {
+                if(!preserveMode.HasValue)await ReadLiveCoreAsync();
+                int current=State.Mode;
+                if(current==4&&configuration.ContainsKey(20)||current==5&&configuration.ContainsKey(21))
+                {
+                    if(!restoring)
+                    {
+                        // Until a firmware-specific live check proves these values static,
+                        // avoid racing or resetting a timer the user is currently running.
+                        blockedActiveTimer=true;
+                        throw new InvalidOperationException("Select On or Off before editing the currently running timer, then save its settings.");
+                    }
+                    // An active timer may expose a changing counter. Freeze only the timer
+                    // being restored; preserve its pre-expiry idle/run behavior meanwhile.
+                    activateMode??=(byte)current;
+                    await SelectModeCoreAsync((byte)(current==4?1:2));
+                }
+            }
+            if(configuration.Count>0)await WriteFieldsCoreAsync(configuration);
+            // Verify stored configuration before activating any timer or automatic mode.
+            // Exact timer readback after activation could race its legitimate countdown.
+            if(activateMode.HasValue)await SelectModeCoreAsync(activateMode.Value);
+            else if(preserveMode.HasValue&&State.Mode!=preserveMode.Value)
+            {
+                // Restore only when firmware switched modes; reselecting an unchanged
+                // cycle or timer could otherwise restart its current phase unnecessarily.
+                await SelectModeCoreAsync(preserveMode.Value);
+            }
+        }
+        catch {if(!blockedActiveTimer)await DisconnectCoreAsync();throw;}
+        finally {gate.Release();}
+    }
+    private async Task SelectModeCoreAsync(byte mode)
+    {
+        var fields=new Dictionary<byte,byte[]>{{16,new[]{mode}}};
+        Protocol.ValidateAck(await SendAsync(3,ControllerPrograms.Encode(fields)),16);
+        var readback=Protocol.Fields(await SendAsync(1,new byte[]{16}));
+        ControllerPrograms.Verify(fields,readback);
+        State.Settings[16]=(byte[])readback[16].Clone();
+        await ReadLiveCoreAsync();
     }
     private async Task WriteVerifiedAsync(Dictionary<byte,byte[]> fields)
     {
         await gate.WaitAsync();
+        try {RequireConnection();await WriteFieldsCoreAsync(fields);}
+        catch {await DisconnectCoreAsync();throw;}
+        finally {gate.Release();}
+    }
+    private async Task WriteFieldsCoreAsync(Dictionary<byte,byte[]> fields)
+    {
+        Protocol.ValidateAck(await SendAsync(3,ControllerPrograms.Encode(fields)),fields.Keys.ToArray());
+        await ReadSettingsCoreAsync();
+        ControllerPrograms.Verify(fields,State.Settings);
+    }
+    // Only documented identity/clock/calibration/status parameters may be inspected.
+    // Query individually so an unsupported parameter cannot hide another parameter's reply.
+    internal async Task<Dictionary<byte,byte[]>> ReadKnownSettingsAsync(byte[] ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if(ids.Any(id=>id is not (1 or 32 or 33 or 34 or 36)))throw new ArgumentException("This setting is not in the read-only inspection list.",nameof(ids));
+        var requested=ids.Distinct().ToArray();
+        var result=new Dictionary<byte,byte[]>();
+        await gate.WaitAsync();
         try
         {
             RequireConnection();
-            Protocol.ValidateAck(await SendAsync(3,ControllerPrograms.Encode(fields)),fields.Keys.ToArray());
-            await ReadSettingsCoreAsync();
-            ControllerPrograms.Verify(fields,State.Settings);
+            foreach(byte id in requested)
+            {
+                var fields=Protocol.Fields(await SendAsync(1,new[]{id}));
+                if(fields.TryGetValue(id,out var value)&&value.Length>0)result[id]=value;
+            }
+            return result;
         }
         catch {await DisconnectCoreAsync();throw;}
         finally {gate.Release();}
