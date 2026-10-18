@@ -35,9 +35,10 @@ if ($aciResult.passed -ne $aciExpectedTotal -or $aciResult.hardwareWrites -ne $f
     throw 'Offline check totals or hardware-write isolation are invalid.'
 }
 # Smoke checks use in-memory preferences and never connect to a controller.
-$aciViews = @('status', 'chart', 'settings', 'picker', 'bluetooth', 'history', 'programs', 'controller-cycle', 'app-schedule', 'controller-auto', 'controller-timer-on', 'controller-timer-off')
+$aciViews = @('status', 'chart', 'settings', 'picker', 'bluetooth', 'history', 'programs', 'controller-cycle', 'app-schedule', 'controller-auto', 'controller-timer-on', 'controller-timer-off', 'mode-menu')
 foreach ($view in $aciViews) {
     Invoke-Check "--smoke --$view" "$view.png"
 }
+Invoke-Check '--smoke --mode-menu --light' 'mode-menu-light.png'
 Invoke-Check '--smoke --multi-controller' 'multiple-controllers.png'
-Write-Host "Passed $($aciResult.passed) offline checks and $($aciViews.Count + 1) window checks."
+Write-Host "Passed $($aciResult.passed) offline checks and $($aciViews.Count + 2) window checks."

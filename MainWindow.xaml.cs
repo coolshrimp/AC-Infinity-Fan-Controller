@@ -215,6 +215,12 @@ public partial class MainWindow : Window
                 dpi=VisualTreeHelper.GetDpi(this).PixelsPerDip
             },new JsonSerializerOptions{WriteIndented=true}));
             if(Shell.ActualHeight+1<content.ActualHeight)throw new InvalidOperationException($"Widget content overflow: shell {Shell.ActualHeight}, content {content.ActualHeight}, window {ActualHeight}.");
+            if(Environment.GetCommandLineArgs().Contains("--mode-menu"))
+            {
+                controller.State.Mode=2;FanOptionsButton.IsEnabled=true;
+                FanOptionsButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                await Dispatcher.Yield(DispatcherPriority.ContextIdle);ModeMenu.UpdateLayout();
+            }
             smokeReady.TrySetResult();return;
         }
         using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/ui/icon.ico")).Stream;
@@ -266,7 +272,10 @@ public partial class MainWindow : Window
     {
         if(quitting)return;
         quitting=true;timer.Stop();await RestoreScheduleBeforeQuitAsync();
-        ClosePopups();SavePreferences();
+        bool hadMenu=ModeMenu.IsOpen;ClosePopups();
+        // Let the popup's native window finish closing before shutting down its owner.
+        if(hadMenu)await Dispatcher.Yield(DispatcherPriority.ContextIdle);
+        SavePreferences();
         appearanceWindow.AllowClose=bluetoothWindow.AllowClose=helpWindow.AllowClose=colorPicker.AllowClose=historyWindow.AllowClose=true;
         SaveHistory();
         foreach(var panel in Panels)panel.Close();
@@ -430,6 +439,7 @@ public partial class MainWindow : Window
             await RunAsync(async()=>{
                 await StopAppScheduleCoreAsync(true);
                 if(level==0)await controller.SetModeAsync(false);else await controller.SetSpeedAsync(level);
+                LoadControllerEditors();
                 FollowRamp(level==0?controller.State.Off:level);
             },level==0?"Selecting saved Off mode...":$"Setting speed to {level}...");
         }
@@ -440,7 +450,7 @@ public partial class MainWindow : Window
         if(captureLive){UpdateView();return;}
         bool turnOn=OnOffToggle.IsChecked==true;
         OnOffToggle.IsChecked=controller.Connected&&controller.State.Mode==2;
-        await RunAsync(async()=>{await StopAppScheduleCoreAsync(true);await controller.SetModeAsync(turnOn);FollowRamp(turnOn?controller.State.On:controller.State.Off);},"Updating fan mode...");
+        await RunAsync(async()=>{await StopAppScheduleCoreAsync(true);await controller.SetModeAsync(turnOn);LoadControllerEditors();FollowRamp(turnOn?controller.State.On:controller.State.Off);},"Updating fan mode...");
     }
     private void Unit_Click(object sender,RoutedEventArgs e){fahrenheit=!fahrenheit;SavePreferences();UpdateView();}
     private void Pin_Click(object sender,RoutedEventArgs e){Topmost=!Topmost;foreach(var panel in Panels)panel.Topmost=Topmost;ApplyAppearance();SavePreferences();}
@@ -609,7 +619,7 @@ public partial class MainWindow : Window
     private void Settings_Click(object sender,RoutedEventArgs e)=>TogglePanel(appearanceWindow);
     private void Programs_Click(object sender,RoutedEventArgs e){prefs.WidgetView="Schedule";ApplyWidgetView();SavePreferences();}
     private void Help_Click(object sender,RoutedEventArgs e)=>TogglePanel(helpWindow);
-    private void ClosePopups(){foreach(var panel in Panels)panel.Hide();}
+    private void ClosePopups(){ModeMenu.IsOpen=false;foreach(var panel in Panels)panel.Hide();}
     private void TogglePanel(Window panel)
     {
         bool open=!panel.IsVisible;ClosePopups();if(!open)return;
@@ -634,7 +644,7 @@ public partial class MainWindow : Window
         if(Math.Abs(panel.Left-position.X)>.1)panel.Left=position.X;
         if(Math.Abs(panel.Top-position.Y)>.1)panel.Top=position.Y;
     }
-    internal FrameworkElement SmokeSurface=>Panels.FirstOrDefault(p=>p.IsVisible)??(FrameworkElement)this;
+    internal FrameworkElement SmokeSurface=>ModeMenu.IsOpen?ModeMenu:Panels.FirstOrDefault(p=>p.IsVisible)??(FrameworkElement)this;
     private void Tray_Click(object sender,RoutedEventArgs e){ClosePopups();SavePreferences();Hide();}
     private async void Close_Click(object sender,RoutedEventArgs e)=>await QuitAsync();
     private void WindowsBluetooth_Click(object sender,RoutedEventArgs e)

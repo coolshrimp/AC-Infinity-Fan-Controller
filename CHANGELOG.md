@@ -1,5 +1,13 @@
 # Changes
 
+## 0.8.1
+
+- Make the Schedule tab's Active controller mode selector activate the stored program and load fresh settings, including Auto, into editable fields.
+- Keep parameter editing available through Save settings and Save & activate; reading settings and documentation capture do not activate modes.
+- Restart an active timer with its edited duration through Save & activate; disable save-only while that countdown is active.
+- Remove the white native gutter from the fan options menu and mode dropdown.
+- Match popup borders, selected rows, and hover states to the widget's styling.
+
 ## 0.8.0
 
 - Embed the program editor in a Schedule tab beside Status and Chart.

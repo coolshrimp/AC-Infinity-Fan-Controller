@@ -16,7 +16,7 @@ public partial class MainWindow
     private readonly DispatcherTimer scheduleTimer=new(){Interval=TimeSpan.FromSeconds(1)};
     private bool scheduleTickRunning,scheduleStopping;
     private byte[]? editorAutoRaw;
-    private bool editorFahrenheit;
+    private bool editorFahrenheit,loadingControllerEditors,modeActivationPending;
     private AppScheduleSession scheduleSession=null!;
     private Forms.ToolStripMenuItem? trayScheduleStop;
     private bool HasAppSchedule => prefs.AppSchedule.Enabled||prefs.ScheduleRestore!=null;
@@ -24,6 +24,7 @@ public partial class MainWindow
     {
         scheduleSession=new AppScheduleSession(prefs,controller,SaveScheduleState);
         LoadAppScheduleEditors();
+        programsWindow.ControllerModeCommitted+=async mode=>await ActivateControllerModeAsync(mode);
         programsWindow.ReadControllerButton.Click+=async(_,_)=>await ProgramActionAsync(async()=>{await controller.ReadProgramsAsync();LoadControllerEditors();},"Reading controller settings…");
         programsWindow.ApplyControllerButton.Click+=async(_,_)=>await SaveControllerEditorAsync(true);
         programsWindow.SaveControllerButton.Click+=async(_,_)=>await SaveControllerEditorAsync(false);
@@ -96,8 +97,14 @@ public partial class MainWindow
         if(program.Mode==3&&(!controller.State.Settings.TryGetValue(19,out var current)||
             editorAutoRaw==null||!System.Linq.Enumerable.SequenceEqual(current,editorAutoRaw)))
             throw new InvalidOperationException("Auto settings changed since they were loaded. Read settings, then make your edits again.");
+        if(activate&&(program.Mode is 4 or 5)&&controller.State.Mode==program.Mode)
+        {
+            // Save & activate deliberately restarts this countdown with the edited duration.
+            // Pause in its pre-expiry idle/run state so configuration verifies before restart.
+            await controller.SelectModeAsync(program.Mode==4?1:2);
+        }
         await controller.ApplyProgramAsync(program,activate);
-        LoadControllerEditors(program.Mode);
+        LoadControllerEditors();
         programsWindow.ProgramActionText.Text=activate?"Saved and verified. The selected mode now runs on the controller without this PC.":
             "Saved and verified. The controller's active mode was kept; shared On/Off presets take effect immediately.";
     },activate?"Saving and activating controller mode…":"Saving controller settings…");
@@ -106,17 +113,55 @@ public partial class MainWindow
         if(captureLive)return;
         foreach(var item in ModeMenu.Items)
             if(item is MenuItem m&&m.Tag is string tag){m.IsCheckable=true;m.IsChecked=tag==controller.State.Mode.ToString(CultureInfo.InvariantCulture);}
-        ModeMenu.PlacementTarget=(Button)sender;ModeMenu.IsOpen=true;
+        // ContextMenu is a separate popup tree; share this widget's live theme resources.
+        ModeMenu.Resources=Resources;ModeMenu.PlacementTarget=(Button)sender;ModeMenu.IsOpen=true;
     }
     private async void ControllerMode_Click(object sender,RoutedEventArgs e)
     {
-        if(captureLive||smoke)return;
         int mode=int.Parse((string)((MenuItem)sender).Tag,CultureInfo.InvariantCulture);
+        await ActivateControllerModeAsync(mode);
+    }
+    private async Task ActivateControllerModeAsync(int mode)
+    {
+        if(loadingControllerEditors||captureLive||smoke||mode is <1 or >7)return;
+        if(modeActivationPending||busy&&!refreshing||scheduleStopping)
+        {
+            SetControllerModeSelection(controller.State.Mode);
+            return;
+        }
+        // Disconnected selection remains useful for browsing; it never arms a later write.
+        if(!controller.Connected)return;
+        if(mode==controller.State.Mode&&!HasAppSchedule)return;
+        modeActivationPending=true;UpdateScheduleView();
+        try
+        {
         await ProgramActionAsync(async()=>
         {
-            await StopAppScheduleCoreAsync(true);await controller.SelectModeAsync(mode);LoadControllerEditors(mode);
-            programsWindow.ProgramActionText.Text="Active mode: "+controller.State.ModeName+". Edit its stored settings here.";
+            try
+            {
+                await StopAppScheduleCoreAsync(true);
+                await controller.SelectModeAsync(mode);
+                // Mode-only selection does not refresh Auto/timers/cycle/daily values.
+                // Read every editor field afresh instead of displaying a previous snapshot.
+                await controller.ReadProgramsAsync();
+                LoadControllerEditors();
+                programsWindow.ProgramActionText.Text="Active mode: "+controller.State.ModeName+". Stored settings loaded; edit the values below, then save changes.";
+            }
+            catch
+            {
+                SetControllerModeSelection(controller.State.Mode);
+                throw;
+            }
         },"Selecting controller mode…");
+        }
+        finally {modeActivationPending=false;UpdateScheduleView();}
+    }
+    private void SetControllerModeSelection(int mode)
+    {
+        if(mode is <1 or >7)return;
+        bool wasLoading=loadingControllerEditors;loadingControllerEditors=true;
+        try {programsWindow.ProgramKindBox.SelectedIndex=mode-1;}
+        finally {loadingControllerEditors=wasLoading;}
     }
     private AppFanSchedule ReadAppScheduleEditors()
     {
@@ -135,25 +180,30 @@ public partial class MainWindow
     }
     private void LoadControllerEditors(int? selectedMode=null)
     {
-        var s=controller.State;var w=programsWindow;
-        if((selectedMode??s.Mode) is >=1 and <=7)w.ProgramKindBox.SelectedIndex=(selectedMode??s.Mode)-1;
-        w.ControllerRunSpeedBox.Text=s.On.ToString(CultureInfo.InvariantCulture);w.ControllerIdleSpeedBox.Text=s.Off.ToString(CultureInfo.InvariantCulture);
-        if(s.Settings.TryGetValue(23,out var daily)&&daily.Length==4)
-        {w.ControllerStartBox.Text=$"{daily[0]:00}:{daily[1]:00}";w.ControllerEndBox.Text=$"{daily[2]:00}:{daily[3]:00}";}
-        if(s.Settings.TryGetValue(22,out var cycle)&&cycle.Length==8)
-        {w.ControllerOnMinutesBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(cycle));w.ControllerOffMinutesBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(cycle.AsSpan(4)));}
-        if(s.Settings.TryGetValue(20,out var on)&&on.Length==4)w.TimerOnBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(on));
-        if(s.Settings.TryGetValue(21,out var off)&&off.Length==4)w.TimerOffBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(off));
-        editorAutoRaw=null;
-        if(s.Settings.TryGetValue(19,out var raw)&&raw.Length==7)
+        bool wasLoading=loadingControllerEditors;loadingControllerEditors=true;
+        try
         {
-            editorAutoRaw=(byte[])raw.Clone();editorFahrenheit=fahrenheit;
-            var a=ControllerAutoSettings.FromRaw(raw,editorFahrenheit);w.AutoUnitText.Text=editorFahrenheit?"°F":"°C";
-            w.HighTemperatureEnabledBox.IsChecked=a.HighTemperatureEnabled;w.LowTemperatureEnabledBox.IsChecked=a.LowTemperatureEnabled;
-            w.HighHumidityEnabledBox.IsChecked=a.HighHumidityEnabled;w.LowHumidityEnabledBox.IsChecked=a.LowHumidityEnabled;
-            w.HighTemperatureBox.Text=a.HighTemperature.ToString(CultureInfo.InvariantCulture);w.LowTemperatureBox.Text=a.LowTemperature.ToString(CultureInfo.InvariantCulture);
-            w.HighHumidityBox.Text=a.HighHumidity.ToString(CultureInfo.InvariantCulture);w.LowHumidityBox.Text=a.LowHumidity.ToString(CultureInfo.InvariantCulture);
+            var s=controller.State;var w=programsWindow;
+            if((selectedMode??s.Mode) is >=1 and <=7)w.ProgramKindBox.SelectedIndex=(selectedMode??s.Mode)-1;
+            w.ControllerRunSpeedBox.Text=s.On.ToString(CultureInfo.InvariantCulture);w.ControllerIdleSpeedBox.Text=s.Off.ToString(CultureInfo.InvariantCulture);
+            if(s.Settings.TryGetValue(23,out var daily)&&daily.Length==4)
+            {w.ControllerStartBox.Text=$"{daily[0]:00}:{daily[1]:00}";w.ControllerEndBox.Text=$"{daily[2]:00}:{daily[3]:00}";}
+            if(s.Settings.TryGetValue(22,out var cycle)&&cycle.Length==8)
+            {w.ControllerOnMinutesBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(cycle));w.ControllerOffMinutesBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(cycle.AsSpan(4)));}
+            if(s.Settings.TryGetValue(20,out var on)&&on.Length==4)w.TimerOnBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(on));
+            if(s.Settings.TryGetValue(21,out var off)&&off.Length==4)w.TimerOffBox.Text=DurationText(BinaryPrimitives.ReadUInt32BigEndian(off));
+            editorAutoRaw=null;
+            if(s.Settings.TryGetValue(19,out var raw)&&raw.Length==7)
+            {
+                editorAutoRaw=(byte[])raw.Clone();editorFahrenheit=fahrenheit;
+                var a=ControllerAutoSettings.FromRaw(raw,editorFahrenheit);w.AutoUnitText.Text=editorFahrenheit?"°F":"°C";
+                w.HighTemperatureEnabledBox.IsChecked=a.HighTemperatureEnabled;w.LowTemperatureEnabledBox.IsChecked=a.LowTemperatureEnabled;
+                w.HighHumidityEnabledBox.IsChecked=a.HighHumidityEnabled;w.LowHumidityEnabledBox.IsChecked=a.LowHumidityEnabled;
+                w.HighTemperatureBox.Text=a.HighTemperature.ToString(CultureInfo.InvariantCulture);w.LowTemperatureBox.Text=a.LowTemperature.ToString(CultureInfo.InvariantCulture);
+                w.HighHumidityBox.Text=a.HighHumidity.ToString(CultureInfo.InvariantCulture);w.LowHumidityBox.Text=a.LowHumidity.ToString(CultureInfo.InvariantCulture);
+            }
         }
+        finally {loadingControllerEditors=wasLoading;}
     }
     private void SaveScheduleState()
     {
@@ -215,6 +265,7 @@ public partial class MainWindow
     {
         if(!smoke)throw new InvalidOperationException("Scheduling UI checks require smoke mode.");
         var w=programsWindow;var original=prefs.AppSchedule;
+        int nativeModeBefore=controller.State.Mode;
         if(w.SaveControllerButton.IsEnabled||w.ApplyControllerButton.IsEnabled||w.StartAppButton.IsEnabled||w.StopAppButton.IsEnabled)
             throw new InvalidOperationException("Disconnected scheduling controls accepted a write.");
         if(ReadAppScheduleEditors().Validate().Length>0)throw new InvalidOperationException("Default app schedule is invalid.");
@@ -244,6 +295,8 @@ public partial class MainWindow
         var encoded=ReadControllerEditors().Auto!.Encode();
         if(encoded[0]!=0xae||encoded[1]!=88||encoded[3]!=60)throw new InvalidOperationException("Auto editor lost reserved bits or unchanged F/C pairs.");
         editorAutoRaw=null;w.ProgramKindBox.SelectedIndex=6;
+        LoadControllerEditors();
+        if(controller.State.Mode!=nativeModeBefore)throw new InvalidOperationException("Programmatic editor selection or reload changed controller mode.");
         prefs.AppSchedule=ReadAppScheduleEditors();UpdateScheduleView();
         Tray_Click(this,new RoutedEventArgs());
         if(!prefs.AppSchedule.Enabled||IsVisible)throw new InvalidOperationException("Minimizing disabled the app schedule.");
@@ -254,7 +307,18 @@ public partial class MainWindow
         if(!initialized)return;
         bool available=!captureLive&&controller.Connected&&(!busy||refreshing)&&!scheduleStopping;
         var w=programsWindow;
-        w.SaveControllerButton.IsEnabled=available;w.ReadControllerButton.IsEnabled=available;w.ApplyControllerButton.IsEnabled=available;w.StartAppButton.IsEnabled=available;
+        // Keep the active selector in step with manual controls, timer completion, and
+        // PC schedule phases without replacing draft values during regular polling.
+        if(!smoke&&!captureLive&&controller.Connected&&!busy&&!loadingControllerEditors&&!w.ProgramKindBox.IsDropDownOpen&&
+            w.ProgramKindBox.SelectedIndex+1!=controller.State.Mode)
+            SetControllerModeSelection(controller.State.Mode);
+        int selectedMode=w.ProgramKindBox.SelectedIndex+1;
+        bool activeTimer=controller.Connected&&(selectedMode is 4 or 5)&&selectedMode==controller.State.Mode;
+        w.ProgramKindBox.IsEnabled=!captureLive&&(!busy||refreshing)&&!scheduleStopping&&!modeActivationPending;
+        ModeButton.IsEnabled=FanOptionsButton.IsEnabled=available&&!modeActivationPending;
+        w.SaveControllerButton.IsEnabled=available&&!activeTimer;
+        w.SaveControllerButton.ToolTip=activeTimer?"Use Save & activate to restart this countdown with your edited duration.":"Save edited values while keeping the active mode; shared On/Off presets take effect immediately.";
+        w.ReadControllerButton.IsEnabled=available;w.ApplyControllerButton.IsEnabled=available;w.StartAppButton.IsEnabled=available;
         w.StopAppButton.IsEnabled=!captureLive&&HasAppSchedule&&(!busy||refreshing)&&!scheduleStopping;
         if(trayScheduleStop!=null)trayScheduleStop.Enabled=HasAppSchedule;
         string text="No app schedule running.";

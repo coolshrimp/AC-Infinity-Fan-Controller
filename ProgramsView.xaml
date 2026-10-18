@@ -11,11 +11,11 @@
    <Grid>
     <StackPanel x:Name="ControllerSection">
      <TextBlock Text="Saved on the controller" FontSize="14" Margin="0,0,0,6"/>
-     <TextBlock Text="Runs independently of this app or PC. Choose the controller mode to view or edit. For a daily window with a repeating cycle, use This PC." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,14"/>
+     <TextBlock Text="Runs independently of this app or PC. Selecting a mode immediately activates its stored settings. Edit the values below, then save your changes. For a daily window with a repeating cycle, use This PC." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,14"/>
      <Border Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="12">
       <StackPanel>
-       <TextBlock Text="Controller mode" Style="{DynamicResource Caption}" Margin="0,0,0,5"/>
-       <ComboBox x:Name="ProgramKindBox" Style="{DynamicResource ModernCombo}" SelectedIndex="6" SelectionChanged="ProgramKind_Changed" ToolTip="Choose the controller mode whose settings you want to edit" AutomationProperties.Name="Controller program mode">
+       <TextBlock Text="Active controller mode" Style="{DynamicResource Caption}" Margin="0,0,0,5"/>
+       <ComboBox x:Name="ProgramKindBox" Style="{DynamicResource ModernCombo}" SelectedIndex="6" SelectionChanged="ProgramKind_Changed" DropDownOpened="ProgramKind_DropDownOpened" DropDownClosed="ProgramKind_DropDownClosed" PreviewKeyDown="ProgramKind_PreviewKeyDown" ToolTip="When connected, choosing a mode activates its saved settings and loads them for editing" AutomationProperties.Name="Active controller mode">
         <ComboBoxItem Content="Manual Off" Tag="1"/>
         <ComboBoxItem Content="Manual On" Tag="2"/>
         <ComboBoxItem Content="Auto thresholds" Tag="3"/>
@@ -80,7 +80,7 @@
         <StackPanel Grid.Column="1" Margin="6,0,0,0"><TextBlock Text="Idle speed · 0–10" FontSize="11" Margin="0,0,0,5"/><TextBox x:Name="ControllerIdleSpeedBox" Text="0" MaxLength="2" ToolTip="Saved Off speed, from 0 to 10; a value above zero can still spin the fan" AutomationProperties.Name="Controller idle speed"/></StackPanel>
        </Grid>
        <TextBlock Text="These are the controller's shared On/Off presets. Zero can stop output; an Off preset above zero can still spin the fan." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,8,0,0"/>
-       <TextBlock Text="Save settings keeps the current mode. Save &amp; activate also switches to the mode selected above." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,10,0,0"/>
+       <TextBlock Text="Choosing a mode activates its saved settings. Save settings applies edited values; Save &amp; activate also restarts the selected mode. Use Save &amp; activate when changing a running timer." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,10,0,0"/>
 
       </StackPanel>
      </Border>
@@ -121,7 +121,7 @@
   <Grid x:Name="ControllerActions" Grid.Row="3" Margin="0,10,0,0">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
    <Button x:Name="ReadControllerButton" Content="Read settings" Margin="0,0,4,0" FontSize="11" Padding="6,8" ToolTip="Load the controller's saved settings into these fields" AutomationProperties.Name="Read controller program settings"/>
-   <Button x:Name="SaveControllerButton" Grid.Column="1" Content="Save settings" Margin="4,0,4,0" FontSize="11" Padding="6,8" ToolTip="Save the selected program and speed presets without changing the active mode" AutomationProperties.Name="Save controller settings without activating"/>
+   <Button x:Name="SaveControllerButton" Grid.Column="1" ToolTipService.ShowOnDisabled="True" Content="Save settings" Margin="4,0,4,0" FontSize="11" Padding="6,8" ToolTip="Save the selected program and speed presets without changing the active mode" AutomationProperties.Name="Save controller settings without activating"/>
    <Button x:Name="ApplyControllerButton" Grid.Column="2" Content="Save &amp; activate" Margin="4,0,0,0" FontSize="11" Padding="6,8" BorderBrush="{DynamicResource AccentBrush}" ToolTip="Save the settings and switch to the selected controller mode" AutomationProperties.Name="Save and activate controller program"/>
   </Grid>
   <Grid x:Name="AppActions" Grid.Row="3" Margin="0,10,0,0" Visibility="Collapsed">
