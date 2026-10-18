@@ -44,6 +44,8 @@ internal static class ProtocolChecks
             File.WriteAllText(path,"{\"address\":null,\"DisplayNames\":null,\"HistoryHours\":-1,\"WidgetView\":null,\"Transparency\":200}");
             var repaired=Preferences.Read(path);
             Check(repaired.address=="" && repaired.DisplayNames!=null && repaired.HistoryHours==6 && repaired.WidgetView=="Status" && repaired.Transparency==100);
+            File.WriteAllText(path,"{\"WidgetView\":\"Readings\"}");
+            Check(Preferences.Read(path).WidgetView=="Status");
         } finally {File.Delete(path);Directory.Delete(dir);}
         var testId=Guid.NewGuid();
         using(var owner=new SingleInstance("ACInfinityDesktop.Test."+testId))

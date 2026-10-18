@@ -21,10 +21,10 @@ function Invoke-Check([string]$Arguments, [string]$OutputName) {
 
 Invoke-Check '--self-test' 'checks.json'
 $aciResult = Get-Content (Join-Path $aciChecks 'checks.json') -Raw | ConvertFrom-Json
-if ($aciResult.passed -lt 80) { throw 'Offline check count is below the expected baseline.' }
+if ($aciResult.passed -lt 81) { throw 'Offline check count is below the expected baseline.' }
 # Smoke checks use in-memory preferences and never connect to a controller.
-foreach ($view in @('readings', 'controls', 'chart', 'settings', 'picker', 'bluetooth', 'history')) {
+foreach ($view in @('status', 'chart', 'settings', 'picker', 'bluetooth', 'history')) {
     Invoke-Check "--smoke --$view" "$view.png"
 }
 Invoke-Check '--smoke --multi-controller' 'multiple-controllers.png'
-Write-Host "Passed $($aciResult.passed) offline checks and eight window checks."
+Write-Host "Passed $($aciResult.passed) offline checks and seven window checks."

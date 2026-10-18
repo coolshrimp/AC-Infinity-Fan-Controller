@@ -40,7 +40,7 @@ public sealed class Preferences
             value.address ??= "";
             value.DeviceName ??= "Choose device";
             value.DisplayNames ??= new();
-            value.WidgetView = value.WidgetView is "Readings" or "Chart" ? value.WidgetView : "Status";
+            value.WidgetView = value.WidgetView == "Chart" ? "Chart" : "Status";
             value.HistoryHours = value.HistoryHours is 1 or 6 or 24 ? value.HistoryHours : 6;
             value.unit = value.unit == "F" ? "F" : "C";
             value.Transparency = double.IsFinite(value.Transparency) ? Math.Clamp(value.Transparency,45,100) : 94;

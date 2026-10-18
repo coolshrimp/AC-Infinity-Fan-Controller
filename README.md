@@ -10,13 +10,13 @@ Unofficial software; not affiliated with or endorsed by AC Infinity.
 
 Captured from a live Controller 67 connection. Device addresses and private diagnostics are excluded.
 
-| Readings | Device status |
+| Status | Chart |
 | --- | --- |
-| ![Live temperature, humidity and fan controls](docs/screenshots/readings.png) | ![Live controller status and fan controls](docs/screenshots/device-status.png) |
+| ![Live readings, controller mode and fan controls](docs/screenshots/status.png) | ![Compact sensor chart in the main widget](docs/screenshots/chart.png) |
 
 | Sensor history | Appearance |
 | --- | --- |
-| ![Local sensor history](docs/screenshots/chart.png) | ![Widget appearance settings](docs/screenshots/appearance.png) |
+| ![Separate local sensor history panel](docs/screenshots/history.png) | ![Widget appearance settings](docs/screenshots/appearance.png) |
 
 ## Get started
 
@@ -37,8 +37,7 @@ The two fan sockets on a Controller 67 **share its programming**. Separate widge
 
 ## Controls and views
 
-- **Readings:** temperature, humidity, calculated VPD, and fan controls.
-- **Device status:** readings plus the active controller mode and stored-program viewer.
+- **Status:** the default view on launch, with temperature, humidity, calculated VPD, the active controller mode, fan controls, and access to the stored-program viewer.
 - **Chart:** a compact history overview with 1h, 6h, and 24h ranges. **History ↗** opens a separate, larger panel with temperature, humidity, VPD, sample counts, and first/latest timestamps. Saved readings can be reviewed while disconnected.
 - Release the speed slider at **1-10** to select manual On mode at that level. **0** selects the saved Off mode. The colored fill shows reported output while you choose a target.
 - The **On/Off** toggle selects stored presets. Off can still spin the fan when its saved minimum is above zero.
@@ -65,7 +64,7 @@ dotnet build ACInfinityDesktop.csproj -c Release
 
 The publish profile creates one self-contained Windows x64 application under `Releases/dotnet-<version>`. WPF trimming is disabled. Generated binaries, private settings, and diagnostics are ignored by Git.
 
-`verify.ps1` runs offline protocol/settings checks and eight window checks, including multiple-widget isolation, hidden offline restoration, independent window shutdown, and the separate history panel. Smoke checks use in-memory settings and never connect to Bluetooth. Diagnostic results remain under the ignored `diagnostics/verification` directory.
+`verify.ps1` runs offline protocol/settings checks and seven window checks, including multiple-widget isolation, hidden offline restoration, independent window shutdown, and the separate history panel. Smoke checks use in-memory settings and never connect to Bluetooth. Diagnostic results remain under the ignored `diagnostics/verification` directory.
 
 The GitHub workflow builds and verifies pull requests and pushes to `main` or `master`. Pushing a version tag matching the project version, such as `v0.6.5`, runs the same checks and publishes a release containing one Windows executable. The workflow has read-only permissions during builds; release publishing receives repository-content write permission in a separate job. No personal access token is stored in the repository.
 

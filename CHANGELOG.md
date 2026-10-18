@@ -2,6 +2,7 @@
 
 ## 0.6.5
 
+- Simplify the widget to Status and Chart tabs; open on Status with readings, controller mode, and fan controls together.
 - Independent widgets for multiple Bluetooth controllers, with separate controls, readings, history, appearance, and tray icons.
 - Restore additional controllers quietly in the background; show their widgets only after connection and prevent duplicate connections.
 - Closing one controller widget leaves the others running.

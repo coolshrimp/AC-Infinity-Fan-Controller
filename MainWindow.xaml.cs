@@ -90,6 +90,8 @@ public partial class MainWindow : Window
         colorPicker.Finished+=color=>{if(color.HasValue){string hex=$"#{color.Value.R:X2}{color.Value.G:X2}{color.Value.B:X2}";if(editingAccent)prefs.Accent=hex;else prefs.PanelColor=hex;SavePreferences();}ApplyAppearance();TogglePanel(appearanceWindow);};
         bluetoothWindow.ConnectionStatusText.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding("Text"){Source=StatusText});
         prefs=smoke||additional&&settingsPath==null?new():Preferences.Read(preferences);
+        // Every controller opens on Status, including settings from older layouts.
+        prefs.WidgetView="Status";
         AddressBox.Text="";fahrenheit=prefs.unit=="F";
         AutoConnectBox.IsChecked=prefs.AutoConnect;
         OpacitySlider.Value=Math.Clamp(prefs.Transparency,45,100);Topmost=prefs.Pinned;
@@ -105,6 +107,13 @@ public partial class MainWindow : Window
     {
         foreach(var panel in Panels)panel.Owner=this;
         if(smoke){
+            if(prefs.WidgetView!="Status"||ModeText.Visibility!=Visibility.Visible||ChartPanel.Visibility!=Visibility.Collapsed)
+                throw new InvalidOperationException("Widget must open on Status with the controller mode visible.");
+            ChartTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if(ChartPanel.Visibility!=Visibility.Visible||ModeText.Visibility!=Visibility.Visible)
+                throw new InvalidOperationException("Chart must retain the controller status and controls.");
+            StatusTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if(ChartPanel.Visibility!=Visibility.Collapsed)throw new InvalidOperationException("Status did not hide the inline chart.");
             // Exercise release-to-set without a radio, including telemetry during a drag.
             SpeedSlider.IsEnabled=true;SpeedSlider.Value=3;
             if(smokeSpeedCommands.Count!=0)throw new InvalidOperationException("Telemetry issued a speed command");
@@ -162,8 +171,7 @@ public partial class MainWindow : Window
             if(Environment.GetCommandLineArgs().Contains("--history"))History_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--transparent"))OpacitySlider.Value=45;
             if(Environment.GetCommandLineArgs().Contains("--light")){prefs.PanelColor="#F0E9D6";prefs.Accent="#CC3377";ApplyAppearance();Settings_Click(this,new RoutedEventArgs());}
-            if(Environment.GetCommandLineArgs().Contains("--controls")){prefs.WidgetView="Status";ApplyWidgetView();}
-            if(Environment.GetCommandLineArgs().Contains("--readings")){prefs.WidgetView="Readings";ApplyWidgetView();}
+            if(Environment.GetCommandLineArgs().Any(arg=>arg is "--status" or "--controls" or "--readings")){prefs.WidgetView="Status";ApplyWidgetView();}
             if(Environment.GetCommandLineArgs().Contains("--chart")){prefs.WidgetView="Chart";ApplyWidgetView();}
             if(Environment.GetCommandLineArgs().Contains("--demo"))
             {
@@ -437,10 +445,10 @@ public partial class MainWindow : Window
     private void History_Click(object sender,RoutedEventArgs e){UpdateCharts();TogglePanel(historyWindow);}
     private void ApplyWidgetView()
     {
-        if(prefs.WidgetView is not ("Readings" or "Status" or "Chart"))prefs.WidgetView="Status";
-        DeviceStatusPanel.Visibility=Visibility.Visible;ModeText.Visibility=prefs.WidgetView=="Readings"?Visibility.Collapsed:Visibility.Visible;
+        if(prefs.WidgetView!="Chart")prefs.WidgetView="Status";
+        DeviceStatusPanel.Visibility=Visibility.Visible;
         ChartPanel.Visibility=prefs.WidgetView=="Chart"?Visibility.Visible:Visibility.Collapsed;
-        foreach(var button in new[]{ReadingsTab,StatusTab,ChartTab})
+        foreach(var button in new[]{StatusTab,ChartTab})
         {button.Background=(string)button.Tag==prefs.WidgetView?(Brush)Resources["HeaderBrush"]:Brushes.Transparent;button.BorderBrush=(string)button.Tag==prefs.WidgetView?(Brush)Resources["AccentBrush"]:Brushes.Transparent;}
         UpdateCharts();
     }
@@ -466,8 +474,8 @@ public partial class MainWindow : Window
         await Task.Delay(11000);
         if(!controller.Connected)throw new IOException("Controller disconnected before capture.");
         Directory.CreateDirectory(directory);
-        prefs.Transparency=100;prefs.HistoryHours=1;ApplyAppearance();ClosePopups();
-        foreach(var view in new[]{("Readings","readings"),("Status","device-status")})
+        OpacitySlider.Value=100;prefs.HistoryHours=1;ApplyAppearance();ClosePopups();
+        foreach(var view in new[]{("Status","status"),("Chart","chart")})
         {
             prefs.WidgetView=view.Item1;ApplyWidgetView();UpdateView();UpdateLayout();
             await Task.Delay(150);
@@ -475,7 +483,7 @@ public partial class MainWindow : Window
         }
         TogglePanel(historyWindow);UpdateCharts();historyWindow.UpdateLayout();
         await Task.Delay(150);
-        App.CaptureSurface(historyWindow,Path.Combine(directory,"chart.png"));
+        App.CaptureSurface(historyWindow,Path.Combine(directory,"history.png"));
         TogglePanel(appearanceWindow);appearanceWindow.UpdateLayout();
         await Task.Delay(150);
         App.CaptureSurface(appearanceWindow,Path.Combine(directory,"appearance.png"));
