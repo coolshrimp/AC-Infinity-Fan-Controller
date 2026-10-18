@@ -1,5 +1,10 @@
 # Changes
 
+## 0.6.6
+
+- Wait for WPF layout completion before checking and capturing window smoke tests.
+- Preserve detailed check diagnostics when a hosted build fails.
+
 ## 0.6.5
 
 - Simplify the widget to Status and Chart tabs; open on Status with readings, controller mode, and fan controls together.

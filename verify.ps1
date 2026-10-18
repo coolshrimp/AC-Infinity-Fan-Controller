@@ -15,7 +15,11 @@ function Invoke-Check([string]$Arguments, [string]$OutputName) {
         throw "Check timed out: $Arguments"
     }
     if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $output)) {
-        throw "Check failed: $Arguments"
+        foreach($detail in Get-ChildItem -LiteralPath $aciChecks -Filter "$OutputName.*") {
+            Write-Host $detail.Name
+            Get-Content -LiteralPath $detail.FullName | Write-Host
+        }
+        throw "Check failed: $Arguments (exit code $($process.ExitCode))"
     }
 }
 

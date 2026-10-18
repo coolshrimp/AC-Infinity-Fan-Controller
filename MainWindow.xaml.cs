@@ -30,6 +30,8 @@ public partial class MainWindow : Window
     private double speedAtStart;
     private bool loadingDisplayName;
     private readonly List<int> smokeSpeedCommands=new();
+    private readonly TaskCompletionSource smokeReady=new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal Task SmokeReady=>smokeReady.Task;
     private string historyAddress="";
     private Window[] Panels=>new Window[]{appearanceWindow,bluetoothWindow,programsWindow,helpWindow,colorPicker,historyWindow};
     private TextBox AddressBox=>bluetoothWindow.AddressBox;
@@ -179,7 +181,19 @@ public partial class MainWindow : Window
                 DeviceNameText.Text="Example fan";TemperatureText.Text="23.1";HumidityText.Text="48.0";VpdText.Text="1.47";OutputText.Text="6";ModeText.Text="ON · MANUAL";OnOffToggle.IsEnabled=true;OnOffToggle.IsChecked=true;OnOffToggle.Content="On";SpeedSlider.IsEnabled=true;SpeedSlider.Value=6;SpeedSlider.Tag=6d;StatusText.Text="Preview · simulated readings";UpdateCharts();
             }
             if(AddressBox.Text.Length!=0)throw new InvalidOperationException("Address field must start blank");
-            UpdateLayout();if(Shell.ActualHeight+1<((FrameworkElement)Shell.Child).ActualHeight)throw new InvalidOperationException("Widget content overflow");return;
+            // SizeToContent settles after Loaded and the requested view change.
+            // Await that layout cycle instead of asserting against the previous height.
+            await Dispatcher.Yield(DispatcherPriority.ContextIdle);
+            UpdateLayout();
+            var content=(FrameworkElement)Shell.Child;
+            File.WriteAllText(App.GetOutput(Environment.GetCommandLineArgs())+".layout.json",JsonSerializer.Serialize(new
+            {
+                windowHeight=ActualHeight,shellHeight=Shell.ActualHeight,contentHeight=content.ActualHeight,
+                desiredHeight=content.DesiredSize.Height,workArea=SystemParameters.WorkArea.ToString(),
+                dpi=VisualTreeHelper.GetDpi(this).PixelsPerDip
+            },new JsonSerializerOptions{WriteIndented=true}));
+            if(Shell.ActualHeight+1<content.ActualHeight)throw new InvalidOperationException($"Widget content overflow: shell {Shell.ActualHeight}, content {content.ActualHeight}, window {ActualHeight}.");
+            smokeReady.TrySetResult();return;
         }
         using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/ui/icon.ico")).Stream;
         using var source=new System.Drawing.Icon(stream);
@@ -203,7 +217,7 @@ public partial class MainWindow : Window
         var app=(App)Application.Current;
         prefs.address="AA:BB:CC:DD:EE:FF";
         app.OpenAdditionalController();
-        await Task.Delay(300);
+        await app.Windows.OfType<MainWindow>().Single(w=>w!=this).SmokeReady.WaitAsync(TimeSpan.FromSeconds(30));
         var child=app.Windows.OfType<MainWindow>().Single(w=>w!=this);
         app.OpenAdditionalController();
         if(app.Windows.OfType<MainWindow>().Count()!=2)throw new InvalidOperationException("Empty controller chooser was duplicated.");

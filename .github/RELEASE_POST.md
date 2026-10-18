@@ -1,4 +1,4 @@
-# AC Infinity Desktop v0.6.5
+# AC Infinity Desktop v0.6.6
 
 I built a small Windows desktop widget for AC Infinity Controller 67 so I can keep my fan controls and sensor readings nearby without opening the phone app.
 

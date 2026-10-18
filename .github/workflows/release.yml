@@ -32,6 +32,14 @@ jobs:
       - name: Run offline and window checks
         shell: pwsh
         run: ./verify.ps1
+      - name: Preserve failed check diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-diagnostics
+          path: diagnostics/verification/
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64

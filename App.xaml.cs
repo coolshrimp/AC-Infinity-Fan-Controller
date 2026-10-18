@@ -65,6 +65,12 @@ public partial class App : Application
             return;
         }
         bool smoke=e.Args.Contains("--smoke");
+        if(smoke)DispatcherUnhandledException+=(_,failure)=>
+        {
+            try{File.WriteAllText(GetOutput(e.Args)+".error.txt",failure.Exception.ToString());}
+            catch(Exception loggingError){Console.Error.WriteLine(loggingError.Message);}
+            failure.Handled=true;Shutdown(1);
+        };
         if (!smoke)
         {
             instance=new SingleInstance();
@@ -89,7 +95,7 @@ public partial class App : Application
         })));
         if(smoke)
         {
-            await Task.Delay(800);
+            await window.SmokeReady.WaitAsync(TimeSpan.FromSeconds(30));
             if(e.Args.Contains("--multi-controller"))await window.CheckMultipleWidgetsAsync();
             window.UpdateLayout();CaptureSurface(window.SmokeSurface,GetOutput(e.Args));
             await window.QuitAsync();
@@ -102,7 +108,7 @@ public partial class App : Application
             await window.QuitAsync();Environment.ExitCode=exitCode;
         }
     }
-    private static string GetOutput(string[] args)
+    internal static string GetOutput(string[] args)
     {
         int i=Array.IndexOf(args,"--output");
         return i>=0 && i+1<args.Length ? args[i+1] : Path.Combine(AppContext.BaseDirectory,"diagnostic.json");
