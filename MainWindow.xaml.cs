@@ -137,7 +137,13 @@ public partial class MainWindow : Window
             if(prefs.DisplayName()!="Office fan")throw new InvalidOperationException("Custom name failed");
             prefs.address="";prefs.DisplayNames.Clear();UpdateDeviceIdentity();
             double oldLeft=Left,oldPanelLeft=bluetoothWindow.Left;Left+=20;
-            if(Math.Abs(bluetoothWindow.Left-oldPanelLeft)<.1)throw new InvalidOperationException("Docked window did not follow");
+            await Dispatcher.Yield(DispatcherPriority.ContextIdle);
+            var dockingArea=MonitorWorkArea();
+            bool clampedHorizontally=Math.Abs(bluetoothWindow.Left-dockingArea.Left)<1||Math.Abs(bluetoothWindow.Left+bluetoothWindow.ActualWidth-dockingArea.Right)<1;
+            // Small desktops can correctly keep the panel against the screen edge.
+            if(Math.Abs(bluetoothWindow.Left-oldPanelLeft)<.1&&!clampedHorizontally)throw new InvalidOperationException("Docked window did not follow");
+            if(bluetoothWindow.Left<dockingArea.Left-1||bluetoothWindow.Left+bluetoothWindow.ActualWidth>dockingArea.Right+1)
+                throw new InvalidOperationException("Docked window escaped the monitor work area.");
             Left=oldLeft;
             Connection_Click(this,new RoutedEventArgs());
             prefs.PanelColor="#164E63";prefs.Accent="#F0ABFC";OpacitySlider.Value=65;
@@ -538,13 +544,17 @@ public partial class MainWindow : Window
         if(!IsLoaded||!IsVisible)return;
         foreach(var panel in Panels.Where(p=>p.IsVisible))PositionDockedPanel(panel);
     }
-    private void PositionDockedPanel(Window panel)
+    private Rect MonitorWorkArea()
     {
-        // Prefer the space beside the widget; clamp within this monitor's work area.
         var screen=Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle).WorkingArea;
         var source=PresentationSource.FromVisual(this);var transform=source?.CompositionTarget?.TransformFromDevice??Matrix.Identity;
         var start=transform.Transform(new Point(screen.Left,screen.Top));var end=transform.Transform(new Point(screen.Right,screen.Bottom));
-        var position=PanelDocking.Place(new Rect(Left,Top,ActualWidth,ActualHeight),new Size(panel.ActualWidth,panel.ActualHeight),new Rect(start,end));
+        return new Rect(start,end);
+    }
+    private void PositionDockedPanel(Window panel)
+    {
+        // Prefer the space beside the widget; clamp within this monitor's work area.
+        var position=PanelDocking.Place(new Rect(Left,Top,ActualWidth,ActualHeight),new Size(panel.ActualWidth,panel.ActualHeight),MonitorWorkArea());
         if(Math.Abs(panel.Left-position.X)>.1)panel.Left=position.X;
         if(Math.Abs(panel.Top-position.Y)>.1)panel.Top=position.Y;
     }

@@ -2,6 +2,7 @@
 
 ## 0.6.6
 
+- Verify valid edge-clamped panel docking on smaller Windows desktops.
 - Wait for WPF layout completion before checking and capturing window smoke tests.
 - Preserve detailed check diagnostics when a hosted build fails.
 

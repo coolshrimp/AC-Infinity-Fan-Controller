@@ -98,6 +98,9 @@ internal static class ProtocolChecks
         Check(PanelDocking.Place(new System.Windows.Rect(600,700,450,300),new System.Windows.Size(1000,400),work)==new System.Windows.Point(600,290));
         Check(PanelDocking.Place(new System.Windows.Rect(100,900,450,300),size,work)==new System.Windows.Point(100,490));
         Check(PanelDocking.Place(new System.Windows.Rect(-900,100,450,300),size,new System.Windows.Rect(-1920,0,1920,1080))==new System.Windows.Point(-1410,100));
+        var crampedArea=new System.Windows.Rect(0,0,900,600);
+        Check(PanelDocking.Place(new System.Windows.Rect(0,0,450,400),size,crampedArea)==new System.Windows.Point(400,0)&&
+            PanelDocking.Place(new System.Windows.Rect(20,0,450,400),size,crampedArea)==new System.Windows.Point(400,0));
         var polling=new SpeedPolling();var clock=new DateTimeOffset(2026,1,1,0,0,0,TimeSpan.Zero);
         polling.Observe(4,clock,clock,true);Check(polling.Interval.TotalSeconds==10);
         polling.Request(8,clock);Check(polling.Fast&&polling.Target==8);

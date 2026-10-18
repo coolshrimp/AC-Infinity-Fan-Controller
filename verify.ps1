@@ -8,7 +8,9 @@ New-Item -ItemType Directory -Force -Path $aciChecks | Out-Null
 
 function Invoke-Check([string]$Arguments, [string]$OutputName) {
     $output = Join-Path $aciChecks $OutputName
-    if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output }
+    foreach($previous in @($output, "$output.error.txt", "$output.layout.json")) {
+        if (Test-Path -LiteralPath $previous) { Remove-Item -LiteralPath $previous }
+    }
     $process = Start-Process -FilePath $aciExe -ArgumentList "$Arguments --output `"$output`"" -PassThru
     if (-not $process.WaitForExit(60000)) {
         $process.Kill()
@@ -25,7 +27,7 @@ function Invoke-Check([string]$Arguments, [string]$OutputName) {
 
 Invoke-Check '--self-test' 'checks.json'
 $aciResult = Get-Content (Join-Path $aciChecks 'checks.json') -Raw | ConvertFrom-Json
-if ($aciResult.passed -lt 81) { throw 'Offline check count is below the expected baseline.' }
+if ($aciResult.passed -lt 82) { throw 'Offline check count is below the expected baseline.' }
 # Smoke checks use in-memory preferences and never connect to a controller.
 foreach ($view in @('status', 'chart', 'settings', 'picker', 'bluetooth', 'history')) {
     Invoke-Check "--smoke --$view" "$view.png"
