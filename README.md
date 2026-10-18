@@ -83,6 +83,10 @@ Live readings have been checked on one physical Controller 67. Multiple-widget l
 
 When reporting an issue, include your Windows version, controller model, and reproduction steps. Redact Bluetooth addresses and other private diagnostic details.
 
+## Support the project
+
+If this tool helped you out or you enjoy having fan control on your desktop, donations are appreciated. [Support Coolshrimp Modz](https://links.coolshrimpmodz.com/).
+
 ## Source and license
 
 The application is native C# / WPF. `Native/BluetoothController.cs` handles BLE/GATT, `Native/Protocol.cs` validates controller packets, and `Native/SensorHistory.cs` maintains bounded local history.

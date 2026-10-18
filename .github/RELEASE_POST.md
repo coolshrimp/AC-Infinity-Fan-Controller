@@ -11,3 +11,5 @@ The Windows x64 release is a single download with the runtime included. Find it 
 Tested for live readings with my Controller 67. Simultaneous connections to several physical controllers still need testing. This is an unofficial project and is not affiliated with AC Infinity.
 
 Feedback and reproducible bug reports are welcome. Please leave Bluetooth addresses and private diagnostics out of public posts.
+
+If this tool helped you out or you enjoy having fan control on your desktop, donations are appreciated. [Support Coolshrimp Modz](https://links.coolshrimpmodz.com/).
