@@ -123,6 +123,8 @@ internal static class ProtocolChecks
         Check(ColorChoices.TryHex("#91C7F2",out var sky)&&sky==System.Windows.Media.Color.FromRgb(145,199,242));
         Check(!ColorChoices.TryHex("#GG7788",out _));Check(!ColorChoices.TryHex("#12345",out _));
         var hsv=ColorChoices.ToHsv(sky);Check(ColorChoices.Hsv(hsv.H,hsv.S,hsv.V)==sky);
+        passed+=ScheduleChecks.Run();
+        passed+=ScheduleSessionChecks.Run();
         return new {passed,framework="native .NET",hardwareWrites=false};
     }
 }

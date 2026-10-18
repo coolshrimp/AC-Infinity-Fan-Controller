@@ -24,6 +24,9 @@ public sealed class Preferences
     public int HistoryHours {get;set;}=6;
     public string unit {get;set;}="C";
     public bool AutoConnect {get;set;}=true;
+    public AppFanSchedule AppSchedule {get;set;}=new();
+    public string ScheduleAddress {get;set;}="";
+    public ControllerPresetSnapshot? ScheduleRestore {get;set;}
     public bool Pinned {get;set;}
     public string Accent {get;set;}="#91C7F2";
     public string Theme {get;set;}="Midnight";
@@ -40,6 +43,10 @@ public sealed class Preferences
             value.address ??= "";
             value.DeviceName ??= "Choose device";
             value.DisplayNames ??= new();
+            value.AppSchedule ??= new();value.ScheduleAddress ??= "";
+            if(value.AppSchedule.Validate().Length>0)value.AppSchedule=new();
+            if(value.ScheduleRestore is {IsValid:false}){value.ScheduleRestore=null;value.AppSchedule.Enabled=false;}
+            if(value.ScheduleAddress.Length==0)value.AppSchedule.Enabled=false;
             value.WidgetView = value.WidgetView == "Chart" ? "Chart" : "Status";
             value.HistoryHours = value.HistoryHours is 1 or 6 or 24 ? value.HistoryHours : 6;
             value.unit = value.unit == "F" ? "F" : "C";

@@ -2,7 +2,7 @@
 
 A compact Windows Bluetooth widget for **AC Infinity Controller 67 (CTR67A)**, made by [Coolshrimp Modz](https://coolshrimpmodz.com/).
 
-Keep fan controls, temperature, humidity, and calculated VPD on your desktop. Connect several Bluetooth controllers at once, each in its own widget with independent controls and sensor history.
+Keep fan controls, temperature, humidity, and calculated VPD on your desktop. Connect several Bluetooth controllers at once, each in its own widget with independent controls, schedules, and sensor history.
 
 Unofficial software; not affiliated with or endorsed by AC Infinity.
 
@@ -16,7 +16,7 @@ Controller 67 is currently the only identified controller model supported for co
 
 ## Screenshots
 
-Captured from a live Controller 67 connection. Device addresses and private diagnostics are excluded.
+The Status, Chart, Sensor history, and Appearance views were captured from a live Controller 67 connection. Device addresses and private diagnostics are excluded.
 
 | Status | Chart |
 | --- | --- |
@@ -25,6 +25,12 @@ Captured from a live Controller 67 connection. Device addresses and private diag
 | Sensor history | Appearance |
 | --- | --- |
 | ![Separate local sensor history panel](screenshots/history.png) | ![Widget appearance settings](screenshots/appearance.png) |
+
+Scheduling panels below show the default values before connecting.
+
+| Controller schedule | This PC schedule |
+| --- | --- |
+| ![Save a daily schedule directly to the controller](screenshots/controller-schedule.png) | ![Run a daily window with repeating cycles from the tray](screenshots/pc-schedule.png) |
 
 ## Get started
 
@@ -45,18 +51,38 @@ The two fan sockets on a Controller 67 **share its programming**. Separate widge
 
 ## Controls and views
 
-- **Status:** the default view on launch, with temperature, humidity, calculated VPD, the active controller mode, fan controls, and access to the stored-program viewer.
+- **Status:** the default view on launch, with temperature, humidity, calculated VPD, the active controller mode, fan controls, and access to **Fan schedules** through the **⋯** button.
 - **Chart:** a compact history overview with 1h, 6h, and 24h ranges. **History ↗** opens a separate, larger panel with temperature, humidity, VPD, sample counts, and first/latest timestamps. Saved readings can be reviewed while disconnected.
 - Release the speed slider at **1-10** to select manual On mode at that level. **0** selects the saved Off mode. The colored fill shows reported output while you choose a target.
 - The **On/Off** toggle selects stored presets. Off can still spin the fan when its saved minimum is above zero.
 - **Pin** keeps a widget and its panels on top. **Settings** changes colors, opacity, and temperature units. **Minus** hides that widget to its tray icon; **Close** quits that widget.
-- Stored Auto thresholds, timers, cycles, and schedules can be viewed. Editing stored programs is not implemented.
+- **Fan schedules:** read and edit basic controller daily/cycle programs, or run a daily window with cycling from this PC. Stored Auto thresholds and timers remain available to view.
 
-Live readings normally refresh every 10 seconds, switching to two-second reads while output changes. Requests are serialized per controller. Reconnecting reads settings and status without changing the mode or speed. Disconnect pauses automatic retries for that widget until a manual reconnect, scan, or restart.
+Live readings normally refresh every 10 seconds, switching to two-second reads while output changes. Requests are serialized per controller. Reconnecting reads settings and status. An enabled PC schedule then applies its current phase; a stopped schedule with pending restoration restores its previous controller mode and presets. Disconnect stops the PC schedule and restores its previous settings before releasing Bluetooth, then pauses automatic retries until a manual reconnect, scan, or restart.
+
+## Fan schedules
+
+Open **⋯** beside the fan speed, or **Fan schedules…** from that widget's tray menu. Each controller has its own schedule and recovery settings. Enter times as **HH:mm** using a 24-hour clock. Run speed is **1–10**, idle speed is **0–10**, and each cycle duration is **1–1,440 whole minutes**. An idle speed above zero keeps the fan running.
+
+### Controller
+
+Choose a **Daily schedule** or **Repeating cycle**. **Read settings** loads the controller's saved values. **Save & activate** immediately writes the selected program and its On/Off speed presets, activates its mode, and reads the settings back to check that they were retained. The saved mode continues running without this app or PC.
+
+A daily schedule uses the **controller's own clock**; check that clock before saving because this app does not synchronize it. Start and end must differ, and overnight windows are allowed. A repeating cycle runs continuously between its run and idle speeds. Combining a daily window with a cycle is available through **This PC** below; this version does not write the controller's advanced automation settings.
+
+### This PC
+
+Set a daily window and a repeating run/idle cycle, then choose **Save & start**. Starting immediately applies the current phase and its run/idle presets, including idle outside the window. The app uses the run/idle cycle inside the window and the idle speed outside it. Overnight windows are allowed. Equal start and end times select all day; the cycle starts again at the daily start time. This schedule follows this PC's local clock.
+
+Keep the PC awake, this app running, and Bluetooth connected. Minimizing to the tray keeps it running. The widget shows the current schedule state, and the tray menu offers **Stop PC schedule**.
+
+**Stop & restore** returns the controller to the mode and On/Off presets it had before this PC schedule started. Using the app's manual slider or On/Off toggle first stops the PC schedule and restores those settings, then applies your manual change. Selecting a controller program also stops the PC schedule before saving that program.
+
+Quitting normally restores the previous controller mode and presets while keeping the PC schedule enabled in local settings for the next launch. After reopening and reconnecting to the same controller, the app applies the current phase without replaying missed changes. If Bluetooth drops or the app closes unexpectedly, the controller may keep the last applied mode and speed until reconnection. A stopped schedule that could not restore its settings keeps that restoration pending for the same controller.
 
 ## Privacy and local data
 
-No account, cloud service, or telemetry is used. Preferences and Bluetooth addresses remain under `%LOCALAPPDATA%\ACInfinityDesktop`. Additional widget settings live in its `controllers` subfolder. Sensor history is stored in the shared `history` subfolder, separately for each controller address.
+No account, cloud service, or telemetry is used. Preferences and Bluetooth addresses remain under `%LOCALAPPDATA%\ACInfinityDesktop`. Each widget saves its PC schedule, controller association, and previous controller mode/presets locally with its preferences. Additional widget settings live in its `controllers` subfolder. Sensor history is stored in the shared `history` subfolder, separately for each controller address.
 
 History is collected only while this PC is connected. It retains up to 24 hours or 6,000 samples per controller, and is saved about once per minute and on exit. It does not download earlier readings from the controller or cloud. Gaps longer than 60 seconds are not joined on charts. Disconnected widgets retain history while clearing live values.
 
@@ -72,9 +98,9 @@ dotnet build ACInfinityDesktop.csproj -c Release
 
 The publish profile creates one self-contained Windows x64 application under `Releases/dotnet-<version>`. WPF trimming is disabled. Generated binaries, private settings, and diagnostics are ignored by Git.
 
-`verify.ps1` runs offline protocol/settings checks and seven window checks, including multiple-widget isolation, hidden offline restoration, independent window shutdown, and the separate history panel. Smoke checks use in-memory settings and never connect to Bluetooth. Diagnostic results remain under the ignored `diagnostics/verification` directory.
+`verify.ps1` runs 383 offline protocol/settings/schedule checks and 10 window smoke checks, including multiple-widget isolation, hidden offline restoration, independent window shutdown, and the separate history panel. Smoke checks use in-memory settings and never connect to Bluetooth. Diagnostic results remain under the ignored `diagnostics/verification` directory.
 
-The GitHub workflow builds and verifies pull requests and pushes to `main` or `master`. Pushing a version tag matching the project version, such as `v0.6.6`, runs the same checks and publishes a release containing one Windows executable. The workflow has read-only permissions during builds; release publishing receives repository-content write permission in a separate job. No personal access token is stored in the repository.
+The GitHub workflow builds and verifies pull requests and pushes to `main` or `master`. Pushing a version tag matching the project version, such as `v0.7.0`, runs the same checks and publishes a release containing one Windows executable. The workflow has read-only permissions during builds; release publishing receives repository-content write permission in a separate job. No personal access token is stored in the repository.
 
 For maintainers, `--capture-live --output screenshots` exports the four documentation views into the screenshots folder from a real connection, waits for a fresh sample, and exits. Capture mode blocks fan writes and leaves saved preferences and history unchanged. Close other copies before capturing.
 
@@ -86,7 +112,7 @@ Control is restricted to verified Controller 67-compatible Bluetooth replies. Un
 
 VPD is calculated from air temperature and humidity without a leaf-temperature offset. Wi-Fi cloud controllers and independent fan-port control are outside the supported scope.
 
-Live readings have been checked on one physical Controller 67. Multiple-widget lifecycle and isolation have offline coverage; simultaneous connections to several physical controllers still require hardware testing. Motor response to speed/mode writes and real radio dropout recovery have not been deliberately verified in this review.
+Live checks on one Controller 67 verified basic cycle/daily program writes and fresh readback, PC-managed run/idle phases reaching reported outputs 10 and 0, restoration on stop, and the original settings after reconnect. Reported output is not a motor RPM measurement. Multiple-widget lifecycle and isolation have offline coverage; simultaneous physical controllers, full-duration native timing, and real radio-dropout recovery still require hardware testing.
 
 When reporting an issue, include your Windows version, controller model, and reproduction steps. Redact Bluetooth addresses and other private diagnostic details.
 
@@ -96,6 +122,6 @@ If this tool helped you out or you enjoy having fan control on your desktop, don
 
 ## Source and license
 
-The application is native C# / WPF. `Native/BluetoothController.cs` handles BLE/GATT, `Native/Protocol.cs` validates controller packets, and `Native/SensorHistory.cs` maintains bounded local history.
+The application is native C# / WPF. `Native/BluetoothController.cs` handles BLE/GATT, and `Native/Protocol.cs` validates controller packets. `Native/SensorHistory.cs` maintains bounded local history; `Native/FanSchedule.cs` evaluates PC schedule phases.
 
 Copyright 2026 Coolshrimp Modz. All rights reserved for the application code; see [LICENSE](LICENSE). Upstream protocol notices and their separate license terms are retained in [vendor/THIRD_PARTY_NOTICES.md](vendor/THIRD_PARTY_NOTICES.md) and [vendor/Viss-LICENSE.txt](vendor/Viss-LICENSE.txt).

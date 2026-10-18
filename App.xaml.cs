@@ -47,6 +47,14 @@ public partial class App : Application
             catch (Exception ex) { File.WriteAllText(GetOutput(e.Args), ex.ToString()); Shutdown(1); }
             return;
         }
+        if(e.Args.Contains("--inspect-programs")||e.Args.Contains("--test-programs"))
+        {
+            instance=new SingleInstance();
+            if(!instance.IsPrimary){File.WriteAllText(GetOutput(e.Args),"Close the other application before checking hardware.");Shutdown(1);return;}
+            try {await ProgramDiagnostics.RunAsync(e.Args,GetOutput(e.Args));Shutdown(0);}
+            catch {Shutdown(1);}
+            return;
+        }
         if (e.Args.Contains("--probe"))
         {
             var controller = new BluetoothController();

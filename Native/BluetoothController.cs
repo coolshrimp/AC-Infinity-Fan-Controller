@@ -21,7 +21,7 @@ public sealed record DiscoveredController(ulong Address, string Name, short Rssi
     public string Display => $"{Name}  ·  {Mac}  ·  {Rssi} dBm";
 }
 
-public sealed class BluetoothController
+public sealed class BluetoothController : IScheduleController
 {
     private static readonly Guid ServiceId = new("70d51000-2c7f-4e75-ae8a-d758951ce4e0");
     private static readonly Guid WriteId = new("70d51001-2c7f-4e75-ae8a-d758951ce4e0");
@@ -90,7 +90,7 @@ public sealed class BluetoothController
             var token = deadline.Token;
             device = await BluetoothLEDevice.FromBluetoothAddressAsync(target.Address).AsTask(token) ?? throw new IOException("Windows could not open the controller.");
             var services = await device.GetGattServicesForUuidAsync(ServiceId, BluetoothCacheMode.Uncached).AsTask(token);
-            if (services.Status != GattCommunicationStatus.Success || services.Services.Count == 0) throw new IOException("Controller Bluetooth service is unavailable. Move closer and close other controller apps.");
+            if (services.Status != GattCommunicationStatus.Success || services.Services.Count == 0) throw new IOException($"Controller Bluetooth service is unavailable (Windows: {services.Status}, matching services: {services.Services.Count}). Move closer and close other controller apps.");
             service = services.Services[0];
             var chars = await service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached).AsTask(token);
             if (chars.Status != GattCommunicationStatus.Success) throw new IOException("Could not read Bluetooth characteristics.");
@@ -144,6 +144,43 @@ public sealed class BluetoothController
         catch { await DisconnectCoreAsync(); throw; }
         finally { gate.Release(); }
     }
+    public async Task ReadProgramsAsync()
+    {
+        await gate.WaitAsync();
+        try {RequireConnection();await ReadSettingsCoreAsync();}
+        catch {await DisconnectCoreAsync();throw;}
+        finally {gate.Release();}
+    }
+    public Task ApplyProgramAsync(ControllerProgram program)=>WriteVerifiedAsync(ControllerPrograms.ProgramFields(program));
+    public Task SetPresetsAsync(ControllerPresetSnapshot presets)=>WriteVerifiedAsync(Protocol.Fields(ControllerPrograms.Presets(presets)));
+    // Used only by the bounded live check to restore the exact saved bytes.
+    internal Task RestoreProgramsAsync(Dictionary<byte,byte[]> fields)
+    {
+        if(fields.Keys.Any(k=>k is not (16 or 17 or 18 or 22 or 23)))throw new ArgumentException("Unexpected program field.");
+        var ordered=fields.Where(p=>p.Key!=16).ToDictionary(p=>p.Key,p=>p.Value);
+        if(fields.TryGetValue(16,out var mode))ordered[16]=mode;
+        return WriteVerifiedAsync(ordered);
+    }
+    private async Task WriteVerifiedAsync(Dictionary<byte,byte[]> fields)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            RequireConnection();
+            Protocol.ValidateAck(await SendAsync(3,ControllerPrograms.Encode(fields)),fields.Keys.ToArray());
+            await ReadSettingsCoreAsync();
+            ControllerPrograms.Verify(fields,State.Settings);
+        }
+        catch {await DisconnectCoreAsync();throw;}
+        finally {gate.Release();}
+    }
+    private async Task ReadSettingsCoreAsync()
+    {
+        var fields=Protocol.Fields(await SendAsync(1,new byte[]{16,17,18,19,20,21,22,23}));
+        if(!fields.TryGetValue(17,out var off)||off.Length!=1||off[0]>10||
+           !fields.TryGetValue(18,out var on)||on.Length!=1||on[0]>10)throw new InvalidDataException("Invalid Controller 67 presets.");
+        State.Settings=fields;State.On=on[0];State.Off=off[0];await ReadLiveCoreAsync();
+    }
     private async Task ReadLiveCoreAsync() => State.ApplyLive(Protocol.Fields(await SendAsync(1, new byte[] {16,2,3,32})));
     private void RequireConnection() { if (!Connected) throw new IOException("Connect to your controller first."); }
     private static void Check(GattCommunicationStatus status) { if (status != GattCommunicationStatus.Success) throw new IOException($"Bluetooth communication failed: {status}. Move closer and reconnect."); }
@@ -161,9 +198,15 @@ public sealed class BluetoothController
         }
         try
         {
-            using var bytes = new DataWriter(); bytes.WriteBytes(Protocol.Request(command, current, payload));
+            var frame=Protocol.Request(command,current,payload);
             var option = writer.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write) ? GattWriteOption.WriteWithResponse : GattWriteOption.WriteWithoutResponse;
-            Check(await writer.WriteValueAsync(bytes.DetachBuffer(), option).AsTask(deadline.Token));
+            // Controller 67 accepts a framed command over consecutive ATT writes.
+            // Twenty-byte fragments also work with the minimum Bluetooth ATT MTU.
+            for(int offset=0;offset<frame.Length;offset+=20)
+            {
+                using var bytes=new DataWriter();bytes.WriteBytes(frame.AsSpan(offset,Math.Min(20,frame.Length-offset)).ToArray());
+                Check(await writer.WriteValueAsync(bytes.DetachBuffer(),option).AsTask(deadline.Token));
+            }
             return await completion.Task.WaitAsync(deadline.Token);
         }
         catch (OperationCanceledException) { throw new IOException("Controller did not respond within 12 seconds. Move closer and reconnect. A write may have reached the controller; check its current mode before retrying."); }

@@ -30,7 +30,7 @@
      <Image Source="ui/icon.png" Width="25" Height="25" Margin="0,0,12,0" RenderTransformOrigin="0.5,0.5"><Image.RenderTransform><RotateTransform x:Name="FanRotation"/></Image.RenderTransform></Image>
      <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Fan speed" FontSize="12"/><TextBlock x:Name="ModeText" Text="Not connected" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0"/></StackPanel>
      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="OutputText" Foreground="{DynamicResource AccentBrush}" Text="—" FontSize="27" FontWeight="Light"/><TextBlock Text=" / 10" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="0,0,8,5"/></StackPanel>
-     <Button Grid.Column="3" Content="⋯" Click="Programs_Click" ToolTip="View stored controller programs" Padding="8,5" VerticalAlignment="Center"/>
+     <Button Grid.Column="3" Content="⋯" Click="Programs_Click" ToolTip="Controller and PC fan schedules" Padding="8,5" VerticalAlignment="Center"/>
     </Grid>
     <Border Height="1" Background="#35404D" Margin="0,12,0,10"/>
     <DockPanel>
@@ -39,6 +39,7 @@
     </DockPanel>
      <Slider x:Name="SpeedSlider" Style="{StaticResource LiveSpeedSlider}" Foreground="{DynamicResource AccentBrush}" Background="#46515F" Minimum="0" Maximum="10" Value="0" Tag="0" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1" IsMoveToPointEnabled="True" ToolTip="Drag to choose speed; release to apply. Colored fill shows reported speed. Zero selects saved Off mode." AutomationProperties.Name="Fan speed, applies on release" VerticalAlignment="Center" Margin="0,7,0,0"/>
      <TextBlock x:Name="PresetText" Text="Off mode uses the saved minimum speed." FontSize="9" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+     <TextBlock x:Name="ScheduleStatusText" Visibility="Collapsed" FontSize="10" Foreground="{DynamicResource AccentBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
    </StackPanel></Border>
    <StackPanel x:Name="ChartPanel" Visibility="Collapsed" Margin="0,12,0,0">
     <DockPanel><StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button x:Name="HourButton" Content="1h" Tag="1" Click="Range_Click" Padding="7,3"/><Button x:Name="SixHourButton" Content="6h" Tag="6" Click="Range_Click" Padding="7,3"/><Button x:Name="DayButton" Content="24h" Tag="24" Click="Range_Click" Padding="7,3"/></StackPanel><TextBlock Text="SENSOR HISTORY" FontSize="9" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/></DockPanel>

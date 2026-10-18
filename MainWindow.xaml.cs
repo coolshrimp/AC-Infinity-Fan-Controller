@@ -100,7 +100,7 @@ public partial class MainWindow : Window
         if(prefs.Left is double x && prefs.Top is double y && double.IsFinite(x)&&double.IsFinite(y))
         {Left=Math.Clamp(x,SystemParameters.VirtualScreenLeft,SystemParameters.VirtualScreenLeft+Math.Max(0,SystemParameters.VirtualScreenWidth-Width));Top=Math.Clamp(y,SystemParameters.VirtualScreenTop,SystemParameters.VirtualScreenTop+Math.Max(0,SystemParameters.VirtualScreenHeight-Height));}
         historyAddress=prefs.address;history.SelectDevice(DataDirectory,prefs.address,smoke);
-        initialized=true;UpdateDeviceIdentity();ApplyAppearance();ApplyWidgetView();
+        initialized=true;InitializeScheduling();UpdateDeviceIdentity();ApplyAppearance();ApplyWidgetView();
         IsVisibleChanged+=(_,_)=>UpdateFanAnimation(controller.Connected?controller.State.Output:null);
         timer.Tick+=async(_,_)=>{if(busy||quitting)return;if(controller.Connected)await RunAsync(controller.RefreshAsync,"",true,true);else {UpdateView();await AutoConnectAsync();}};
         UpdateView();
@@ -174,7 +174,12 @@ public partial class MainWindow : Window
                 DevicesList.ItemsSource=new[]{new DiscoveredController(0xAABBCCDDEEFF,"Example Controller 67",-65,1){Verified=true}};
                 Connection_Click(this,new RoutedEventArgs());
             }
-            if(Environment.GetCommandLineArgs().Contains("--programs"))Programs_Click(this,new RoutedEventArgs());
+            if(Environment.GetCommandLineArgs().Any(arg=>arg is "--programs" or "--app-schedule" or "--controller-cycle"))
+            {
+                CheckScheduleInputs();Programs_Click(this,new RoutedEventArgs());
+                if(Environment.GetCommandLineArgs().Contains("--app-schedule"))programsWindow.ThisPcTab.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                if(Environment.GetCommandLineArgs().Contains("--controller-cycle"))programsWindow.ProgramKindBox.SelectedIndex=1;
+            }
             if(Environment.GetCommandLineArgs().Contains("--help-panel"))Help_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--history"))History_Click(this,new RoutedEventArgs());
             if(Environment.GetCommandLineArgs().Contains("--transparent"))OpacitySlider.Value=45;
@@ -207,6 +212,8 @@ public partial class MainWindow : Window
         UpdateWidgetCaption();
         var menu=new Forms.ContextMenuStrip();
         menu.Items.Add("Show controller",null,(_,_)=>Dispatcher.Invoke(ShowWindow));
+        menu.Items.Add("Fan schedules…",null,(_,_)=>Dispatcher.Invoke(()=>{ShowWindow();Programs_Click(this,new RoutedEventArgs());}));
+        trayScheduleStop=new Forms.ToolStripMenuItem("Stop PC schedule",null,async(_,_)=>await Dispatcher.InvokeAsync(StopAppScheduleAsync).Task.Unwrap());menu.Items.Add(trayScheduleStop);
         menu.Items.Add("Quit",null,async(_,_)=>await Dispatcher.InvokeAsync(QuitAsync).Task.Unwrap());
         tray.ContextMenuStrip=menu;tray.DoubleClick+=(_,_)=>Dispatcher.Invoke(ShowWindow);
         timer.Start();await AutoConnectAsync();
@@ -246,7 +253,9 @@ public partial class MainWindow : Window
     private async void Window_Closing(object? sender,CancelEventArgs e){if(!quitting){e.Cancel=true;await QuitAsync();}}
     public async Task QuitAsync()
     {
-        if(quitting)return;ClosePopups();SavePreferences();quitting=true;timer.Stop();
+        if(quitting)return;
+        quitting=true;timer.Stop();await RestoreScheduleBeforeQuitAsync();
+        ClosePopups();SavePreferences();
         appearanceWindow.AllowClose=bluetoothWindow.AllowClose=programsWindow.AllowClose=helpWindow.AllowClose=colorPicker.AllowClose=historyWindow.AllowClose=true;
         SaveHistory();
         foreach(var panel in Panels)panel.Close();
@@ -339,6 +348,8 @@ public partial class MainWindow : Window
     private async Task ConnectTargetAsync(DiscoveredController target)
     {
         var app=(App)Application.Current;
+        if(HasAppSchedule&&prefs.ScheduleAddress.Length>0&&!string.Equals(prefs.ScheduleAddress,target.Mac,StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Reconnect the previous scheduled controller to restore it before selecting another controller.");
         if(app.IsControllerOpen(target.Mac,this))throw new InvalidOperationException("This controller already has an open widget.");
         // Reserve before the first await so two windows cannot race to connect.
         connectingAddress=target.Mac;
@@ -352,6 +363,7 @@ public partial class MainWindow : Window
         Title="AC Infinity Desktop · "+prefs.DisplayName();
         SpeedSlider.Value=controller.State.Output??0;
         StatusText.Text="Connected. Readings refresh every 10 seconds, or 2 seconds while changing.";
+        LoadControllerEditors();await ApplyAppScheduleCoreAsync();
         if(restorePending){restorePending=false;Show();}
     }
     private async Task RunAsync(Func<Task> action,string message,bool background=false,bool isRefresh=false)
@@ -385,7 +397,7 @@ public partial class MainWindow : Window
         reconnect.Reset();await RunAsync(()=>ConnectTargetAsync(target),"Connecting and validating Controller 67 settings…");
     }
     private void Device_Selected(object sender,SelectionChangedEventArgs e)=>UpdateButtons();
-    private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(controller.DisconnectAsync,"Releasing Bluetooth...");if(!controller.Connected)AddressBox.Clear();StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
+    private async void Disconnect_Click(object sender,RoutedEventArgs e){reconnect.Paused=true;await RunAsync(async()=>{await StopAppScheduleCoreAsync(true);await controller.DisconnectAsync();},"Releasing Bluetooth...");if(!controller.Connected)AddressBox.Clear();StatusText.Text="Disconnected. Automatic retries paused until you scan, connect, or restart.";}
     private async void Refresh_Click(object sender,RoutedEventArgs e)=>await RunAsync(controller.RefreshAsync,"",true,true);
     private static bool IsSpeedKey(Key key)=>key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown;
     private void BeginSpeedEdit()
@@ -405,6 +417,7 @@ public partial class MainWindow : Window
         try
         {
             await RunAsync(async()=>{
+                await StopAppScheduleCoreAsync(true);
                 if(level==0)await controller.SetModeAsync(false);else await controller.SetSpeedAsync(level);
                 FollowRamp(level==0?controller.State.Off:level);
             },level==0?"Selecting saved Off mode...":$"Setting speed to {level}...");
@@ -416,7 +429,7 @@ public partial class MainWindow : Window
         if(captureLive){UpdateView();return;}
         bool turnOn=OnOffToggle.IsChecked==true;
         OnOffToggle.IsChecked=controller.Connected&&controller.State.Mode==2;
-        await RunAsync(async()=>{await controller.SetModeAsync(turnOn);FollowRamp(turnOn?controller.State.On:controller.State.Off);},"Updating fan mode...");
+        await RunAsync(async()=>{await StopAppScheduleCoreAsync(true);await controller.SetModeAsync(turnOn);FollowRamp(turnOn?controller.State.On:controller.State.Off);},"Updating fan mode...");
     }
     private void Unit_Click(object sender,RoutedEventArgs e){fahrenheit=!fahrenheit;SavePreferences();UpdateView();}
     private void Pin_Click(object sender,RoutedEventArgs e){Topmost=!Topmost;foreach(var panel in Panels)panel.Topmost=Topmost;ApplyAppearance();SavePreferences();}
@@ -430,6 +443,7 @@ public partial class MainWindow : Window
         OnOffToggle.IsEnabled=live&&!blockControls;SpeedSlider.IsEnabled=live&&!blockControls;ScanButton.IsEnabled=!blockControls&&!live;AddressBox.IsEnabled=!blockControls&&!live;
         ScanButton.Visibility=live?Visibility.Collapsed:Visibility.Visible;
         DisconnectButton.Visibility=live?Visibility.Visible:Visibility.Collapsed;DisconnectButton.IsEnabled=!blockControls;
+        UpdateScheduleView();
         DevicesList.IsEnabled=!blockControls;ConnectButton.IsEnabled=!blockControls&&!live && DevicesList.SelectedItem is DiscoveredController selected && selected.SupportsControls;
     }
     private void UpdateView()

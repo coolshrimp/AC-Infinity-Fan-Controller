@@ -1,5 +1,18 @@
 # Changes
 
+## 0.7.0
+
+- Add a Fan schedules panel with separate Controller and This PC sections.
+- Save basic daily or repeating-cycle programs and On/Off speed presets directly to Controller 67, with setting readback after writes.
+- Run local daily windows with repeating fan cycles, including overnight and all-day windows.
+- Show PC schedule state in the widget and provide schedule controls in its tray menu.
+- Preserve the previous controller mode and presets; restore them on stop, manual control, disconnect, or normal quit.
+- Keep enabled PC schedules for the next launch and resume the current phase after reconnection without replaying missed changes.
+- Retain pending restoration data when a controller is disconnected or a restore write fails.
+
+- Verify native scheduling writes, PC-managed run/idle output, and original-setting restoration against a live Controller 67.
+- Add scheduling panel screenshots and 301 scheduling, program, persistence, and recovery checks.
+
 ## 0.6.6
 
 - Verify valid edge-clamped panel docking on smaller Windows desktops.
