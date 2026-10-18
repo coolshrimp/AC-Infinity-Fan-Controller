@@ -38,5 +38,9 @@ public partial class ColorPickerWindow : Window
     private void Use_Click(object sender,RoutedEventArgs e){if(UseButton.IsEnabled)Finished?.Invoke(selected);}
     private void Cancel_Click(object sender,RoutedEventArgs e)=>Finished?.Invoke(null);
     private void Window_KeyDown(object sender,KeyEventArgs e){if(e.Key==Key.Escape){Finished?.Invoke(null);e.Handled=true;}}
-    private void Window_Closing(object? sender,CancelEventArgs e){if(!AllowClose){e.Cancel=true;Finished?.Invoke(null);}}
+    private void Window_Closing(object? sender,CancelEventArgs e)
+    {
+        // Application shutdown must not reopen the appearance panel.
+        if(!AllowClose&&!(Application.Current is App app&&app.DiagnosticShutdown)){e.Cancel=true;Finished?.Invoke(null);}
+    }
 }

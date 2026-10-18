@@ -10,6 +10,7 @@ namespace ACInfinityDesktop;
 public partial class App : Application
 {
     private SingleInstance? instance;
+    internal bool DiagnosticShutdown {get;private set;}
     internal static void CaptureSurface(FrameworkElement surface,string path)
     {
         surface.UpdateLayout();
@@ -67,9 +68,12 @@ public partial class App : Application
         bool smoke=e.Args.Contains("--smoke");
         if(smoke)DispatcherUnhandledException+=(_,failure)=>
         {
+            failure.Handled=true;
+            if(DiagnosticShutdown)return;
+            DiagnosticShutdown=true;
             try{File.WriteAllText(GetOutput(e.Args)+".error.txt",failure.Exception.ToString());}
             catch(Exception loggingError){Console.Error.WriteLine(loggingError.Message);}
-            failure.Handled=true;Shutdown(1);
+            Shutdown(1);
         };
         if (!smoke)
         {
