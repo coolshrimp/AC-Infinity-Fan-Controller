@@ -6,17 +6,25 @@ Keep fan controls, temperature, humidity, and calculated VPD on your desktop. Co
 
 Unofficial software; not affiliated with or endorsed by AC Infinity.
 
+## Supported controller
+
+**AC Infinity Controller 67 (CTR67A)** — Bluetooth fan control and sensor readings.
+
+<img src="screenshots/ac-infinity-fan-controller%28controller%2067%29.webp" alt="AC Infinity Controller 67 with its sensor probe" width="360">
+
+Controller 67 is currently the only identified controller model supported for control.
+
 ## Screenshots
 
 Captured from a live Controller 67 connection. Device addresses and private diagnostics are excluded.
 
 | Status | Chart |
 | --- | --- |
-| ![Live readings, controller mode and fan controls](docs/screenshots/status.png) | ![Compact sensor chart in the main widget](docs/screenshots/chart.png) |
+| ![Live readings, controller mode and fan controls](screenshots/status.png) | ![Compact sensor chart in the main widget](screenshots/chart.png) |
 
 | Sensor history | Appearance |
 | --- | --- |
-| ![Separate local sensor history panel](docs/screenshots/history.png) | ![Widget appearance settings](docs/screenshots/appearance.png) |
+| ![Separate local sensor history panel](screenshots/history.png) | ![Widget appearance settings](screenshots/appearance.png) |
 
 ## Get started
 
@@ -68,7 +76,7 @@ The publish profile creates one self-contained Windows x64 application under `Re
 
 The GitHub workflow builds and verifies pull requests and pushes to `main` or `master`. Pushing a version tag matching the project version, such as `v0.6.5`, runs the same checks and publishes a release containing one Windows executable. The workflow has read-only permissions during builds; release publishing receives repository-content write permission in a separate job. No personal access token is stored in the repository.
 
-For maintainers, `--capture-live --output <directory>` exports the four documentation views from a real connection, waits for a fresh sample, and exits. Capture mode blocks fan writes and leaves saved preferences and history unchanged. Close other copies before capturing.
+For maintainers, `--capture-live --output screenshots` exports the four documentation views into the screenshots folder from a real connection, waits for a fresh sample, and exits. Capture mode blocks fan writes and leaves saved preferences and history unchanged. Close other copies before capturing.
 
 For UI development, open `ACInfinityDesktop.code-workspace` in VS Code or the solution in Visual Studio. Each window has separate XAML and code-behind; shared styles live in `Theme.xaml`.
 
