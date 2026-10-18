@@ -28,7 +28,7 @@ Captured from a live Controller 67 connection. Device addresses and private diag
 
 ## Get started
 
-1. Open this repository's **Releases** page and download the Windows x64 release asset.
+1. Open the [Releases page](https://github.com/coolshrimp/AC-Infinity-Fan-Controller/releases) and download the Windows x64 release asset.
 2. Run the downloaded application. The .NET runtime is bundled; no separate runtime installation is required.
 3. Keep the powered controller nearby and close other apps holding its Bluetooth connection.
 4. The widget scans and connects automatically when exactly one compatible controller is available. Click the device name or connection badge to choose a controller manually.

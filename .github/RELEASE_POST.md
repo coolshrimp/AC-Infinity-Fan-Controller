@@ -6,7 +6,7 @@ It connects over Bluetooth and shows temperature, humidity, calculated VPD, fan 
 
 Using more than one Bluetooth controller? Each gets its own widget with separate controls and readings. Remembered controllers reconnect quietly on relaunch and only open their widgets once connected. Fans plugged into the same Controller 67 still share that controller's programming.
 
-The Windows x64 release is a single download with the runtime included. Find it on this repository's Releases page.
+The Windows x64 release is a single download with the runtime included. Find it on the [Releases page](https://github.com/coolshrimp/AC-Infinity-Fan-Controller/releases).
 
 Tested for live readings with my Controller 67. Simultaneous connections to several physical controllers still need testing. This is an unofficial project and is not affiliated with AC Infinity.
 
